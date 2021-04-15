@@ -8,7 +8,9 @@ import pytorch_lightning as pl
 import torchreg
 from .models.encoder import Encoder
 from .models.decoder import FixedDecoder
+from .models.elbo import ELBO
 import pprint
+from typing import Dict, Optional
 
 
 class RegistrationModel(pl.LightningModule):
@@ -30,16 +32,20 @@ class RegistrationModel(pl.LightningModule):
             bnorm=self.hparams.bnorm,
             dropout=self.hparams.dropout,
         )
-        self.decoder = FixedDecoder()
+        self.decoder = FixedDecoder(integrate=self.hparams.integrate)
+        if self.hparams.per_pixel_prior:
+            prior_param_size = [1] + list(self.hparams.data_dims)[1:]
+        else:
+            prior_param_size = (1,)
+        self.elbo = ELBO(init_prior_log_alpha=0,
+                         init_prior_log_beta=0,
+                         init_recon_log_var=-4,
+                         param_size=prior_param_size)
 
         # various components for loss caluclation and evaluation
-        self.mse = torch.nn.MSELoss()
-        self.diffusion_reg = torchreg.metrics.GradNorm()
         self.dice_overlap = torchreg.metrics.DiceOverlap(
             classes=list(range(self.hparams.data_classes))
         )
-        self.transformer = torchreg.nn.SpatialTransformer()
-        self.integrate = torchreg.nn.FlowIntegration(nsteps=4)
 
     def configure_optimizers(self):
         opt = torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
@@ -60,21 +66,6 @@ class RegistrationModel(pl.LightningModule):
             },
         }
 
-    def sample(self, mu, log_var):
-        #import ipdb
-        # ipdb.set_trace()
-        std = torch.exp(log_var / 2)
-        # prior distribution p(z)
-        p = torch.distributions.Normal(
-            torch.zeros_like(mu), torch.ones_like(std))
-        # conditional posterior distribution q(z | x)
-        q = torch.distributions.Normal(mu, std)
-        # sample z ~ q(z | x)
-        transform = q.rsample()
-        if self.ndims == 2:
-            transform[:, 2] = 0  # no depth-whise flow in 2d case
-        return p, q, transform
-
     def forward(self, I0: torch.Tensor, I1: torch.Tensor) -> torch.Tensor:
         """[summary]
 
@@ -86,39 +77,58 @@ class RegistrationModel(pl.LightningModule):
             [torch.Tensor]: Pixel-wise upper bound on -log p(I1, I0)
         """
         mu, log_var = self.encoder(I0, I1)
-        prior, posterior, transform = self.sample(mu, log_var)
-        # TODO: return elbo instead
-        return transform, self.decoder(transform, I0)
+        transform = self.sample_transformation(mu, log_var)
+        I01, _ = self.decoder(transform, I0)
 
-    def step(self, I0: torch.Tensor, I1: torch.Tensor) -> torch.Tensor:
+        bound, _, _ = self.elbo.loss(
+            mu, log_var, I01, I1, reduction='none')
+        return bound
+
+    def sample_transformation(self, mu, log_var):
+        std = torch.exp(log_var / 2)
+        # conditional posterior distribution q(z | x)
+        q = torch.distributions.Normal(mu, std)
+        # sample z ~ q(z | x)
+        transform = q.rsample()
+        if self.ndims == 2:
+            transform[:, 2] = 0  # no depth-whise flow in 2d case
+        return transform
+
+    def step(self, I0: torch.Tensor, I1: torch.Tensor, S0: Optional[torch.Tensor] = None, S1: Optional[torch.Tensor] = None) -> Dict[str, float]:
         """[summary]
 
         Args:
-            I0 (torch.Tensor): moving image
-            I1 (torch.Tensor): fixed image
+            I0 (torch.Tensor): [description]
+            I1 (torch.Tensor): [description]
+            S0 ([type], optional): [description]. Defaults to None:Optional[torch.Tensor].
+            S1 ([type], optional): [description]. Defaults to None:Optional[torch.Tensor].
 
         Returns:
-            [torch.Tensor]: Pixel-wise upper bound on -log p(I1, I0)
+            Dict[str, float]: log values
         """
         mu, log_var = self.encoder(I0, I1)
-        p, q, transform = self.sample(mu, log_var)
-        I01 = self.decoder(transform, I0)
+        transform = self.sample_transformation(mu, log_var)
+        I01, S01 = self.decoder(transform, I0, seg=S0)
 
-        recon_loss = 1/(2 * self.hparams.var) * \
-            F.mse_loss(I01, I1, reduction='mean')
-
-        log_qz = q.log_prob(transform)
-        log_pz = p.log_prob(transform)  # TODO: not sure about this part
-        kl_loss = torch.mean(log_qz - log_pz)
-
-        loss = kl_loss + recon_loss
+        loss, recon_loss, kl_loss = self.elbo.loss(
+            mu, log_var, I01, I1, reduction='mean')
 
         logs = {
+            "loss": loss,
             "recon_loss": recon_loss,
             "kl_loss": kl_loss,
-            "loss": loss,
             "mean_latent_log_var": log_var.mean(),
+            "prior_log_alpha": self.elbo.prior_log_alpha.mean(),
+            "prior_log_beta": self.elbo.prior_log_beta.mean(),
+            "recon_log_var": self.elbo.recon_log_var.mean()
         }
+
+        if S0 is not None:
+            # evaluate supervised measures
+            with torch.no_grad():
+                logs["seg_dice_overlap"] = self.dice_overlap(S01, S1)
+                logs["seg_accuracy"] = torch.mean((S01 == S1).float())
+
         return loss, logs
 
     def training_step(self, batch, batch_idx):
@@ -132,24 +142,24 @@ class RegistrationModel(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         I0 = batch['I0']['data']
         I1 = batch['I1']['data']
-        loss, logs = self.step(I0, I1)
+        S0 = batch['S0']['data']
+        S1 = batch['S1']['data']
+        loss, logs = self.step(I0, I1, S0=S0, S1=S1)
         self.log_dict({f"val/{k}": v for k, v in logs.items()})
         return loss
 
     def test_step(self, batch, batch_idx):
         I0 = batch['I0']['data']
         I1 = batch['I1']['data']
-        loss, logs = self.step(I0, I1)
+        S0 = batch['S0']['data']
+        S1 = batch['S1']['data']
+        loss, logs = self.step(I0, I1, S0=S0, S1=S1)
         self.log_dict({f"test/{k}": v for k, v in logs.items()})
         return loss
 
     @staticmethod
     def add_model_specific_args(parent_parser):
         parser = parent_parser.add_argument_group("Registration Model")
-
-        parser.add_argument(
-            "--var", type=float, default=1, help="Variance on the reconstruction distribution. Balances the VAE loss terms. A lower variance strengthens the reconstruction loss."
-        )
         parser.add_argument(
             "--channels",
             nargs="+",
@@ -158,15 +168,21 @@ class RegistrationModel(pl.LightningModule):
             help="U-Net encoder channels. Decoder uses the reverse. Defaukt: [64, 128, 256, 512]",
         )
         parser.add_argument(
-            "--bnorm", action="store_true", help="use batchnormalization."
+            "--integrate", action="store_true", help="set to integrate flow field."
         )
         parser.add_argument(
-            "--dropout", action="store_true", help="use dropout")
-        parser.add_argument(
-            "--lr", type=float, default=1e-4, help="learning rate (default: 0.0001)"
+            "--per_pixel_prior", action="store_true", help="set to train pixel-specific priors, instead of one prior for all pixels."
         )
         parser.add_argument(
-            "--lr_decline_patience", type=int, default=10, help="LR halving after x epochs of no improvement"
+            "--bnorm", action="store_true", help="set to use batchnormalization."
+        )
+        parser.add_argument(
+            "--dropout", action="store_true", help="set to use dropout")
+        parser.add_argument(
+            "--lr", type=float, default=1e-4, help="learning rate. Default: 0.0001"
+        )
+        parser.add_argument(
+            "--lr_decline_patience", type=int, default=10, help="LR halving after x epochs of no improvement. Default: 10"
         )
         parser.add_argument(
             "--conv_layers_per_stage", type=int, default=2, help="Convolutional layer sper network stage. Default: 2"

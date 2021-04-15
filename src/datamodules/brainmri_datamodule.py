@@ -42,7 +42,7 @@ class BrainMRIDataModule(pl.LightningDataModule):
     def train_dataloader(self):
         dataset = BrainMRIDataset(
             self.data_dir, "train", pairs=self.pairs, atlasreg=self.atlasreg,
-            loadseg=self.loadseg, volumetric=self.volumetric,
+            loadseg=False, volumetric=self.volumetric,
             limitsize=4000, deterministic=False, augmentation=None,
         )
         return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers)

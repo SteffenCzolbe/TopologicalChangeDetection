@@ -25,8 +25,10 @@ def get_supported_datamodules():
     from src.datamodules.brainmri_datamodule import BrainMRIDataModule
 
     supported_datamodels = {"mnist": (MnistDataModule, {}),
-                            "brain": (BrainMRIDataModule, {'volumetric': True}),
-                            "brain2d": (BrainMRIDataModule, {'volumetric': False})}
+                            "brain": (BrainMRIDataModule, {'volumetric': True, 'atlasreg': False}),
+                            "brain2d": (BrainMRIDataModule, {'volumetric': False, 'atlasreg': False}),
+                            "brainatlas": (BrainMRIDataModule, {'volumetric': True, 'atlasreg': True}),
+                            "brain2datlas": (BrainMRIDataModule, {'volumetric': False, 'atlasreg': True})}
 
     return supported_datamodels
 

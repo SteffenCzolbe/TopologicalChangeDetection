@@ -141,13 +141,14 @@ class GradNorm(nn.Module):
             dz = dz ** 2
 
         d = dx + dy + (dz if self.ndims == 3 else 0)
-        d /= self.ndims
         if self.reduction == "none":
             # mean over channels. Keep spatial dimensions
             return torch.mean(d, dim=1, keepdim=True)
         elif self.reduction == "mean":
+            d /= self.ndims
             return torch.mean(d)
         elif self.reduction == "sum":
+            d /= self.ndims
             return torch.sum(d)
 
 

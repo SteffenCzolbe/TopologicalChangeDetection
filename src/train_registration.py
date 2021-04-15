@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
 import pytorch_lightning as pl
-from .registration_model import RegistrationModel
+from src.registration_model import RegistrationModel
 import src.util as util
 
 
