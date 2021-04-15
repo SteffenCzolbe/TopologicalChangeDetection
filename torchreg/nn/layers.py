@@ -96,6 +96,11 @@ class SpatialTransformer(nn.Module):
             mode: interpolation mode. If not specified, take mode from init function
             padding_mode: 'zeros', 'boarder', 'reflection'
         """
+        dtype = src.dtype
+        if not dtype.is_floating_point:
+            # convert to float, we will convert back later
+            src = src.float()
+
         if self.ndims == 2:
             # fix depth-value to 0 in 2d case
             flow[:, 2] = 0
@@ -114,6 +119,9 @@ class SpatialTransformer(nn.Module):
         if self.ndims == 2:
             # remove previously added expansion
             sampled = sampled[..., [1]]
+
+        # convert back to origonal dtype
+        sampled = sampled.to(dtype)
 
         return sampled
 

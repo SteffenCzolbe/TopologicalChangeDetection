@@ -14,7 +14,8 @@ class MnistDataModule(pl.LightningDataModule):
         self.label = label
         self.batch_size = batch_size
         self.dims = (1, 28, 28, 1)
-        self.classes = 2
+        self.class_cnt = 0
+        self.class_names = []
         self.num_workers = 4
 
     def prepare_data(self):
@@ -25,12 +26,6 @@ class MnistDataModule(pl.LightningDataModule):
             download()
 
     def train_dataloader(self):
-        # augmentation = tio.transforms.Compose(
-        #     [  # tio.transforms.RandomAffine(scales=(0.9, 1.1), degrees=(-10, 10), translation=0.),
-        #         # tio.transforms.RandomFlip(axes=(0, 1), flip_probability=0.5),
-        #         # tio.transforms.RandomElasticDeformation(max_displacement=5) # not supported for 2d
-        #     ]
-        # )
         dataset = MnistLabelDataset(
             self.data_dir, "train", label=self.label, augmentation=None, size=100000, deterministic=False,
         )

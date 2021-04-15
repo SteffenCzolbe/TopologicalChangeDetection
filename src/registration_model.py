@@ -2,9 +2,12 @@ import os
 import argparse
 import numpy as np
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import pytorch_lightning as pl
 import torchreg
-from .models.voxelmorph import Voxelmorph
+from .models.encoder import Encoder
+from .models.decoder import FixedDecoder
 import pprint
 
 
@@ -16,21 +19,20 @@ class RegistrationModel(pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
         self.hparams = hparams
-        self.mcdropout = False
-
-        # set dimensionalty for torchreg layers
-        torchreg.settings.set_ndims(2)
 
         # set net
-        self.net = Voxelmorph(
-            in_channels=1,
+        self.ndims = torchreg.settings.get_ndims()
+        self.encoder = Encoder(
+            in_channels=self.hparams.data_dims[0],
             enc_feat=self.hparams.channels,
             dec_feat=self.hparams.channels[::-1],
             conv_layers_per_stage=self.hparams.conv_layers_per_stage,
             bnorm=self.hparams.bnorm,
             dropout=self.hparams.dropout,
         )
+        self.decoder = FixedDecoder()
 
+        # various components for loss caluclation and evaluation
         self.mse = torch.nn.MSELoss()
         self.diffusion_reg = torchreg.metrics.GradNorm()
         self.dice_overlap = torchreg.metrics.DiceOverlap(
@@ -58,122 +60,95 @@ class RegistrationModel(pl.LightningModule):
             },
         }
 
-    def forward(self, I0, I1, omit_integration=False):
-        # activate dropout layers for probabilistic model
-        if self.mcdropout:
-            dropout_layers = self.get_dropout_layers(self)
-            for layer in dropout_layers:
-                layer.train()  # activate dropout even when not in training mode
+    def sample(self, mu, log_var):
+        #import ipdb
+        # ipdb.set_trace()
+        std = torch.exp(log_var / 2)
+        # prior distribution p(z)
+        p = torch.distributions.Normal(
+            torch.zeros_like(mu), torch.ones_like(std))
+        # conditional posterior distribution q(z | x)
+        q = torch.distributions.Normal(mu, std)
+        # sample z ~ q(z | x)
+        transform = q.rsample()
+        if self.ndims == 2:
+            transform[:, 2] = 0  # no depth-whise flow in 2d case
+        return p, q, transform
 
-        # run model
-        flow = self.net(I0, I1)
+    def forward(self, I0: torch.Tensor, I1: torch.Tensor) -> torch.Tensor:
+        """[summary]
 
-        if omit_integration:
-            # can be set to avoid doing unneded work, e.g. to speed up training
-            return flow
-        else:
-            # integrate
-            transform = self.integrate(flow)
-            transform_inv = self.integrate(- flow)
-            return transform, transform_inv
+        Args:
+            I0 (torch.Tensor): moving image
+            I1 (torch.Tensor): fixed image
 
-    def enable_mcdropout(self, p):
-        self.mcdropout = True
-        dropout_layers = self.get_dropout_layers(self)
-        for layer in dropout_layers:
-            layer.train()  # activate dropout
-            layer.p = p  # set dropout probability
-
-    def disable_mcdropout(self):
-        self.mcdropout = False
-        dropout_layers = self.get_dropout_layers(self)
-        for layer in dropout_layers:
-            layer.p = 0.5  # reset to default
-
-    def get_dropout_layers(self, model):
+        Returns:
+            [torch.Tensor]: Pixel-wise upper bound on -log p(I1, I0)
         """
-        Collects all the dropout layers of the model
+        mu, log_var = self.encoder(I0, I1)
+        prior, posterior, transform = self.sample(mu, log_var)
+        # TODO: return elbo instead
+        return transform, self.decoder(transform, I0)
+
+    def step(self, I0: torch.Tensor, I1: torch.Tensor) -> torch.Tensor:
+        """[summary]
+
+        Args:
+            I0 (torch.Tensor): moving image
+            I1 (torch.Tensor): fixed image
+
+        Returns:
+            [torch.Tensor]: Pixel-wise upper bound on -log p(I1, I0)
         """
-        ret = []
-        for obj in model.children():
-            if hasattr(obj, 'children'):
-                ret += self.get_dropout_layers(obj)
-            if isinstance(obj, torch.nn.Dropout3d) or isinstance(obj, torch.nn.Dropout2d):
-                ret.append(obj)
-        return ret
+        mu, log_var = self.encoder(I0, I1)
+        p, q, transform = self.sample(mu, log_var)
+        I01 = self.decoder(transform, I0)
 
-    def segmentation_to_onehot(self, S):
-        return (
-            torch.nn.functional.one_hot(
-                S[:, 0], num_classes=self.dataset_config("classes")
-            )
-            .unsqueeze(1)
-            .transpose(1, -1)
-            .squeeze(-1)
-            .float()
-        )
+        recon_loss = 1/(2 * self.hparams.var) * \
+            F.mse_loss(I01, I1, reduction='mean')
 
-    def _step(self, batch, batch_idx, subset="train"):
-        # unpack batch
-        I0 = batch['I0']['data']
-        I1 = batch['I1']['data']
-        seg_available = batch.get('S0')
-        if seg_available:
-            S0 = batch['S0']['data']
-            S1 = batch['S1']['data']
+        log_qz = q.log_prob(transform)
+        log_pz = p.log_prob(transform)  # TODO: not sure about this part
+        kl_loss = torch.mean(log_qz - log_pz)
 
-        # predict flowfield
-        flow = self.forward(I0, I1, omit_integration=True)
-        transform = self.integrate(flow)
+        loss = kl_loss + recon_loss
 
-        # morph image and segmentation
-        Im = self.transformer(I0, transform)
-        if seg_available:
-            Sm = self.transformer(S0.float(), transform,
-                                  mode="nearest").round().long()
-            S0_onehot = self.segmentation_to_onehot(S0)
-            Sm_onehot = self.transformer(S0_onehot, transform)
-            S1_onehot = self.segmentation_to_onehot(S1)
-
-        # calculate loss
-        similarity_loss = self.mse(Im, I1)
-        diffusion_regularization = self.diffusion_reg(flow)
-        loss = similarity_loss + self.hparams.lam * diffusion_regularization
-        self.log(f"{subset}/loss", loss)
-        self.log(f"{subset}/regularization",
-                 diffusion_regularization)
-        self.log(f"{subset}/similarity_loss", similarity_loss)
-
-        # calculate other (supervised) evaluation mesures
-        if seg_available:
-            with torch.no_grad():
-                dice_overlap = self.dice_overlap(S_m, S_1)
-                accuracy = torch.mean((S_m == S_1).float())
-                self.log(f"{subset}/dice_overlap", dice_overlap)
-                self.log(f"{subset}/accuracy", accuracy)
-
-        return loss
+        logs = {
+            "recon_loss": recon_loss,
+            "kl_loss": kl_loss,
+            "loss": loss,
+            "mean_latent_log_var": log_var.mean(),
+        }
+        return loss, logs
 
     def training_step(self, batch, batch_idx):
-        return self._step(batch, batch_idx, subset="train")
+        I0 = batch['I0']['data']
+        I1 = batch['I1']['data']
+        loss, logs = self.step(I0, I1)
+        self.log_dict({f"train/{k}": v for k, v in logs.items()},
+                      on_step=True, on_epoch=False)
+        return loss
 
     def validation_step(self, batch, batch_idx):
-        self._step(batch, batch_idx, subset="val")
+        I0 = batch['I0']['data']
+        I1 = batch['I1']['data']
+        loss, logs = self.step(I0, I1)
+        self.log_dict({f"val/{k}": v for k, v in logs.items()})
+        return loss
 
     def test_step(self, batch, batch_idx):
-        self._step(batch, batch_idx, subset="test")
+        I0 = batch['I0']['data']
+        I1 = batch['I1']['data']
+        loss, logs = self.step(I0, I1)
+        self.log_dict({f"test/{k}": v for k, v in logs.items()})
+        return loss
 
     @staticmethod
-    def model_args(parent_parser=None):
-        if parent_parser:
-            parser = argparse.ArgumentParser(
-                parents=[parent_parser], add_help=False
-            )
-        else:
-            parser = argparse.ArgumentParser()
+    def add_model_specific_args(parent_parser):
+        parser = parent_parser.add_argument_group("Registration Model")
 
         parser.add_argument(
-            "--lam", type=float, default=0.5, help="Diffusion regularizer strength"
+            "--var", type=float, default=1, help="Variance on the reconstruction distribution. Balances the VAE loss terms. A lower variance strengthens the reconstruction loss."
         )
         parser.add_argument(
             "--channels",
@@ -197,4 +172,4 @@ class RegistrationModel(pl.LightningModule):
             "--conv_layers_per_stage", type=int, default=2, help="Convolutional layer sper network stage. Default: 2"
         )
 
-        return parser
+        return parent_parser

@@ -6,9 +6,9 @@ import torchreg.settings as settings
 import numpy as np
 
 
-class Backbone(nn.Module):
+class UNet(nn.Module):
     """ 
-    U-net backbone for registration models.
+    U-net
     """
 
     def __init__(self, enc_feat, dec_feat, in_channels=1, conv_layers_per_stage=2, bnorm=False, dropout=True, skip_connections=True):
@@ -124,49 +124,3 @@ class Stage(nn.Module):
 
     def forward(self, x):
         return self.stage(x)
-
-
-class FlowPredictor(nn.Module):
-    """
-    A layer intended for flow prediction. Initialied with small weights for faster training.
-    """
-
-    def __init__(self, in_channels):
-        super().__init__()
-        """
-        instantiates the flow prediction layer.
-        
-        Parameters:
-            in_channels: input channels
-        """
-        self.ndims = settings.get_ndims()
-        # configure cnn
-        self.cnn = nn.Sequential(
-            tnn.Conv(in_channels, in_channels, kernel_size=3, padding=1),
-            nn.LeakyReLU(0.2),
-            tnn.Conv(in_channels, in_channels, kernel_size=3, padding=1),
-            nn.LeakyReLU(0.2),
-            tnn.Conv(in_channels, 3, kernel_size=3, padding=1),
-        )
-
-        # init final cnn layer with small weights and bias
-        self.cnn[-1].weight = nn.Parameter(
-            Normal(0, 1e-5).sample(self.cnn[-1].weight.shape)
-        )
-        self.cnn[-1].bias = nn.Parameter(torch.zeros(self.cnn[-1].bias.shape))
-
-    def forward(self, x):
-        """
-        predicts the transformation. 
-
-        Parameters:
-            x: the input
-
-        Return:
-            pos_flow, neg_flow: the positive and negative flow
-        """
-        # predict the flow
-        flow = self.cnn(x)
-        if self.ndims == 2:
-            flow[:, 2] = 0  # no depth-whise flow in 2d case
-        return flow

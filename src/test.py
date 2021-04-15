@@ -194,12 +194,29 @@ def cli_main(args):
 
     # plot
     columns = ['Moving', 'Fixed', 'Morphed', 'Transform',
-               '$U_T$', '$U_L$', '$U_A$', '$U_A$ prob.']
+               '$U_T$', '$U_L$', 'Diff', '$U_A$', '$U_A$ prob.', 'Inpainting']
     cols = len(columns)
     rows = min(8, len(I0))
     fig = viz.Fig(rows, cols, None, figsize=(
         cols, rows), transparent_background=False, column_titles=columns)
     fig.fig.subplots_adjust(hspace=0.05, wspace=0.05)
+
+    # custom transparent colormap
+    import matplotlib
+    cdict = {'red':   [(0.0,  0.0, 0.0),
+                       (1.0,  0.0, 0.0)],
+
+             'green': [(0.0,  0.0, 0.0),
+                       (1.0,  1.0, 1.0)],
+
+             'blue':  [(0.0,  0.0, 0.0),
+                       (1.0,  0.0, 0.0)],
+             'alpha': [(0.0,  0.0, 0.0),
+                       (1.0,  1.0, 1.0)], }
+    transparent_cmap = matplotlib.colors.LinearSegmentedColormap(
+        name='transparent', segmentdata=cdict)
+    cmap = 'viridis'
+
     for r in range(rows):
         # moving
         fig.plot_img(r, 0, I0[r], vmin=0, vmax=1)
@@ -221,19 +238,31 @@ def cli_main(args):
 
         # transformation uncetainty
         fig.plot_img(r, 4, I0[r], vmin=0, vmax=1)
-        fig.plot_overlay(r, 4, U_t[r], vmin=0)
+        fig.plot_overlay(r, 4, U_t[r], vmin=0, cmap=cmap)
 
         # label uncertainty
         fig.plot_img(r, 5, I0[r], vmin=0, vmax=1)
-        fig.plot_overlay(r, 5, U_l[r], vmin=0)
+        fig.plot_overlay(r, 5, U_l[r], vmin=0, cmap=cmap)
 
-        # Anatomical uncertainty
+        # Difference
+        diff = (I0 - I1).abs()
         fig.plot_img(r, 6, I0[r], vmin=0, vmax=1)
-        fig.plot_overlay(r, 6, U_a[r], vmin=0)
+        fig.plot_overlay(r, 6, diff[r], vmin=0,
+                         cmap=cmap)
 
         # Anatomical uncertainty
         fig.plot_img(r, 7, I0[r], vmin=0, vmax=1)
-        fig.plot_overlay(r, 7, U_a_prob[r], vmin=0)
+        fig.plot_overlay(r, 7, U_a[r], vmin=0, cmap=cmap)
+
+        # Anatomical uncertainty
+        fig.plot_img(r, 8, I0[r], vmin=0, vmax=1)
+        fig.plot_overlay(r, 8, U_a_prob[r], vmin=0,
+                         cmap=cmap)
+
+        # thresholded inpainting
+        inpainted = I0.clone()
+        inpainted[U_a_prob > 0.5] = 0.
+        fig.plot_img(r, 9, inpainted[r], vmin=0, vmax=1)
 
     os.makedirs("./plots", exist_ok=True)
     fig.save(args.file)

@@ -22,13 +22,16 @@ def to_device(obj, device):
 
 def get_supported_datamodules():
     from src.datamodules.mnist_datamodule import MnistDataModule
+    from src.datamodules.brainmri_datamodule import BrainMRIDataModule
 
-    supported_datamodels = {"mnist": MnistDataModule}
+    supported_datamodels = {"mnist": (MnistDataModule, {}),
+                            "brain": (BrainMRIDataModule, {'volumetric': True}),
+                            "brain2d": (BrainMRIDataModule, {'volumetric': False})}
 
     return supported_datamodels
 
 
-def load_damodule(dataset_name, batch_size=32):
+def load_datamodule_from_name(dataset_name, batch_size=32):
     """Loads a Datamodule
 
     Args:
@@ -44,7 +47,8 @@ def load_damodule(dataset_name, batch_size=32):
             f"Dataset {dataset_name} unknown. Supported datasets: {supported_datamodels.keys()}"
         )
 
-    datamodule = supported_datamodels[dataset_name](batch_size=batch_size)
+    datamodule_cls, args = supported_datamodels[dataset_name]
+    datamodule = datamodule_cls(batch_size=batch_size, **args)
 
     if datamodule.dims[-1] == 1:
         torchreg.settings.set_ndims(2)
@@ -63,7 +67,7 @@ def load_datamodule_for_model(model, batch_size=None):
     """
     batch_size = batch_size if batch_size is not None else model.hparams.batch_size
     datamodule_name = model.hparams.dataset
-    return load_damodule(datamodule_name, batch_size=batch_size)
+    return load_datamodule(datamodule_name, batch_size=batch_size)
 
 
 def entropy(p):

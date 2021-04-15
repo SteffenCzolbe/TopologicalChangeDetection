@@ -145,7 +145,7 @@ class Fig:
         img = torch.tensor(img).permute(-1, 0, 1)
         self.plot_overlay(row, col, img, alpha=alpha)
 
-    def plot_overlay(self, row, col, mask, alpha=0.4, vmin=None, vmax=None):
+    def plot_overlay(self, row, col, mask, cmap='jet', alpha=0.4, vmin=None, vmax=None):
         """
         imposes an overlay onto a plot
         Overlay needs to be of the form C x H x W
@@ -164,7 +164,7 @@ class Fig:
             # plot greyscale image
             self.axs[row, col].imshow(
                 mask,
-                cmap="jet",
+                cmap=cmap,
                 vmin=vmin,
                 vmax=vmax,
                 interpolation="none",
@@ -172,7 +172,7 @@ class Fig:
             )
         elif len(mask.shape) in [3, 4]:
             # last channel is color channel
-            self.axs[row, col].imshow(mask, alpha=alpha)
+            self.axs[row, col].imshow(mask, alpha=alpha, cmap=cmap)
         return self
 
     def plot_transform_grid(

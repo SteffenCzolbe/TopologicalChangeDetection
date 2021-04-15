@@ -4,26 +4,50 @@ from .registration_model import RegistrationModel
 import src.util as util
 
 
-def main(hparams):
-    pl.seed_everything(42)
+def add_program_level_args(parent_parser):
+    parser = parent_parser.add_argument_group("Program Level Arguments")
+    parser.add_argument(
+        "--load_from_checkpoint", help="optional model checkpoint to initialize with"
+    )
+    parser.add_argument(
+        "--notest", action="store_true", help="Set to not run test after training."
+    )
+    parser.add_argument(
+        "--dataset", type=str, default="mnist", help=f"Dataset. Options: {util.get_supported_datamodules().keys()}"
+    )
+    parser.add_argument(
+        "--early_stop_patience",
+        type=int,
+        default=100,
+        help="Early stopping oatience, in Epcohs. Default: 10",
+    )
+    parser.add_argument(
+        "--batch_size", type=int,
+        default=32, help="batchsize")
+    return parent_parser
 
-    # load data
-    dataset = util.load_damodule(
+
+def load_datamodule_from_params(hparams):
+    datamodule = util.load_datamodule_from_name(
         hparams.dataset, batch_size=hparams.batch_size)
-    hparams.data_dims = dataset.dims
-    hparams.data_classes = dataset.classes
+    # pass data properties to model
+    hparams.data_dims = datamodule.dims
+    hparams.data_classes = datamodule.class_cnt
+    return datamodule, hparams
 
-    # load model
+
+def load_model_from_hparams(hparams):
     if hparams.load_from_checkpoint:
         model = RegistrationModel.load_from_checkpoint(
-            hparams.load_from_checkpoint)
+            checkpoint_path=hparams.load_from_checkpoint)
         hparams.resume_from_checkpoint = hparams.load_from_checkpoint
     else:
         model = RegistrationModel(hparams)
 
-    # add some hints for better experiments tracking
-    hparams.task = "registration"
+    return model, hparams
 
+
+def config_trainer_from_hparams(hparams):
     # save model with best validation loss
     checkpointing_callback = pl.callbacks.ModelCheckpoint(
         monitor="val/loss", mode="min"
@@ -39,9 +63,18 @@ def main(hparams):
         checkpoint_callback=checkpointing_callback,
         callbacks=[early_stop_callback],
     )
+    return trainer
 
-    # fit
-    trainer.fit(model, dataset)
+
+def main(hparams):
+    # set-up
+    pl.seed_everything(42)
+    datamodule, hparams = load_datamodule_from_params(hparams)
+    model, hparams = load_model_from_hparams(hparams)
+    trainer = config_trainer_from_hparams(hparams)
+
+    # train
+    trainer.fit(model, datamodule)
 
     # test
     if not hparams.notest:
@@ -50,28 +83,10 @@ def main(hparams):
 
 if __name__ == "__main__":
     # add model args
-    parser = RegistrationModel.model_args()
-    # add program level args
-    parser.add_argument(
-        "--load_from_checkpoint", help="optional model checkpoint to initialize with"
-    )
-    parser.add_argument(
-        "--notest", action="store_true", help="Set to not run test after training."
-    )
-    parser.add_argument(
-        "--dataset", type=str, default="mnist", help="Dataset."
-    )
-    parser.add_argument(
-        "--early_stop_patience",
-        type=int,
-        default=100,
-        help="Early stopping oatience, in Epcohs. Default: 10",
-    )
-    parser.add_argument(
-        "--batch_size", type=int,
-        default=32, help="batchsize")
-    # add trainer args
+    parser = ArgumentParser()
     parser = pl.Trainer.add_argparse_args(parser)
+    parser = RegistrationModel.add_model_specific_args(parser)
+    parser = add_program_level_args(parser)
 
     hparams = parser.parse_args()
     main(hparams)
