@@ -37,9 +37,9 @@ class RegistrationModel(pl.LightningModule):
             prior_param_size = [1] + list(self.hparams.data_dims)[1:]
         else:
             prior_param_size = (1,)
-        self.elbo = ELBO(init_prior_log_alpha=0,
-                         init_prior_log_beta=0,
-                         init_recon_log_var=-4,
+        self.elbo = ELBO(init_prior_log_alpha=-0.5,
+                         init_prior_log_beta=1,
+                         init_recon_log_var=-3.5,  # init close to optimum
                          param_size=prior_param_size)
 
         # various components for loss caluclation and evaluation

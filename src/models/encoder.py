@@ -44,7 +44,7 @@ class Encoder(nn.Module):
         self.mu = FlowPredictor(
             in_channels=unet_out_channels, init_mean=0, init_std=1e-5)
         self.log_var = FlowPredictor(
-            in_channels=unet_out_channels, init_mean=-20, init_std=1e-2)
+            in_channels=unet_out_channels, init_mean=-3, init_std=1e-2)
 
     def forward(self, x0, x1):
         # feed through network
