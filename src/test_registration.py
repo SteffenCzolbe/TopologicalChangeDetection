@@ -4,8 +4,8 @@ segments a TIFF image stack
 import argparse
 import os
 import pytorch_lightning as pl
-import torchio as tio
 from .registration_model import RegistrationModel
+from
 
 
 def main(hparams):
@@ -17,13 +17,6 @@ def main(hparams):
     print(
         f"Evaluating model for dataset {model.hparams.dataset}, loss {model.hparams.loss}, lambda {model.hparams.lam}"
     )
-
-    # init trainer
-    trainer = pl.Trainer()
-
-    # test (pass in the model)
-    if hparams.test:
-        trainer.test(model)
 
     # create grid animation
     dataloader = model.test_dataloader()

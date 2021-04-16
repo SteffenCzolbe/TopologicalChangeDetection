@@ -8,7 +8,7 @@ class ELBO(nn.Module):
     def __init__(self, data_dims, init_prior_log_alpha, init_prior_log_beta, init_recon_log_var, param_size=(1,)):
         super().__init__()
         self.ndims = torchreg.settings.get_ndims()
-        self.data_dims
+        self.data_dims = data_dims
         self.prior_log_alpha = torch.nn.parameter.Parameter(
             init_prior_log_alpha * torch.ones(param_size), requires_grad=True)
         self.prior_log_beta = torch.nn.parameter.Parameter(
@@ -38,8 +38,8 @@ class ELBO(nn.Module):
 
     def kl_loss(self, mu, log_var, reduction='mean'):
         # we implement the term pixel-whise
-        n = self.ndims * torch.prod(self.data_dims[1:])
-        degree = 2*self.ndims
+        n = self.ndims * torch.prod(torch.tensor(self.data_dims[1:]))
+        degree = 2 * self.ndims
         alpha = torch.exp(self.prior_log_alpha)
         beta = torch.exp(self.prior_log_beta)
 

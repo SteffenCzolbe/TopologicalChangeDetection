@@ -41,7 +41,7 @@ class Fig:
             for c, column_title in zip(range(cols), column_titles):
                 self.axs[0, c].set_title(column_title)
 
-    def plot_img(self, row, col, image, title=None, vmin=None, vmax=None):
+    def plot_img(self, row, col, image, title=None, vmin=None, vmax=None, cmap="gray"):
         """
         plots a tensor of the form C x H x W at position row, col.
         C needs to be either C=1 or C=3
@@ -52,6 +52,7 @@ class Fig:
             title: optional title
             vmin: optinal lower bound for color scaling
             vmax: optional higher bound for color scaling
+            cmap: optional cmap for 1-channel images
         """
         # convert to numpy
         img = transforms.image_to_numpy(image)

@@ -23,12 +23,14 @@ def to_device(obj, device):
 def get_supported_datamodules():
     from src.datamodules.mnist_datamodule import MnistDataModule
     from src.datamodules.brainmri_datamodule import BrainMRIDataModule
+    from src.datamodules.brats_datamodule import BraTSDataModule
 
     supported_datamodels = {"mnist": (MnistDataModule, {}),
                             "brain": (BrainMRIDataModule, {'volumetric': True, 'atlasreg': False}),
                             "brain2d": (BrainMRIDataModule, {'volumetric': False, 'atlasreg': False}),
                             "brainatlas": (BrainMRIDataModule, {'volumetric': True, 'atlasreg': True}),
-                            "brain2datlas": (BrainMRIDataModule, {'volumetric': False, 'atlasreg': True})}
+                            "brain2datlas": (BrainMRIDataModule, {'volumetric': False, 'atlasreg': True}),
+                            "brats2d": (BraTSDataModule, {'volumetric': False, 'atlasreg': False}), }
 
     return supported_datamodels
 
@@ -70,6 +72,34 @@ def load_datamodule_for_model(model, batch_size=None):
     batch_size = batch_size if batch_size is not None else model.hparams.batch_size
     datamodule_name = model.hparams.dataset
     return load_datamodule(datamodule_name, batch_size=batch_size)
+
+
+def get_checkoint_path_from_logdir(model_logdir):
+    epoch_to_checkpoint = {}
+    regex = r".*epoch=([0-9]+)-step=[0-9]+.ckpt"
+    for fname in glob.glob(os.path.join(model_logdir, "checkpoints", "*")):
+        if re.match(regex, fname):
+            epoch = re.search(regex, fname).group(1)
+            epoch_to_checkpoint[int(epoch)] = fname
+    return sorted(epoch_to_checkpoint.items(), key=lambda t: t[0])[-1][1]
+
+
+def load_model_from_logdir(model_logdir):
+    checkpoint = get_checkoint_path_from_logdir(model_logdir)
+    print(f"Loading model from checkpoint file {checkpoint}")
+    from src.registration_model import RegistrationModel
+    try:
+        model = RegistrationModel.load_from_checkpoint(
+            checkpoint_path=checkpoint, strict=True
+        )
+    except RuntimeError as e:
+        print("WARNING: ", e)
+        print("reloading model with non-strict mapping...")
+        model = RegistrationModel.load_from_checkpoint(
+            checkpoint_path=checkpoint, strict=False
+        )
+
+    return model
 
 
 def entropy(p):

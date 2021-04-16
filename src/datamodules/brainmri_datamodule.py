@@ -154,7 +154,7 @@ class BrainMRIDataset(Dataset):
         else:
             # pick two pseudo-random images
             N = len(self.image_nii_files)
-            index *= (N ** 2) // self.limitsize
+            index *= (N ** 2) // (self.limitsize or N)
             idx0 = index // N
             idx1 = index % N
             return idx0, idx1

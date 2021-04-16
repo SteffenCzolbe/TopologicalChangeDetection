@@ -37,7 +37,8 @@ class RegistrationModel(pl.LightningModule):
             prior_param_size = [1] + list(self.hparams.data_dims)[1:]
         else:
             prior_param_size = (1,)
-        self.elbo = ELBO(init_prior_log_alpha=-0.5,
+        self.elbo = ELBO(data_dims=self.hparams.data_dims,
+                         init_prior_log_alpha=-0.5,
                          init_prior_log_beta=1,
                          init_recon_log_var=-3.5,  # init close to optimum
                          param_size=prior_param_size)
@@ -77,12 +78,12 @@ class RegistrationModel(pl.LightningModule):
             [torch.Tensor]: Pixel-wise upper bound on -log p(I1, I0)
         """
         mu, log_var = self.encoder(I0, I1)
-        transform = self.sample_transformation(mu, log_var)
+        transform = mu  # no sample during forward.
         I01, _ = self.decoder(transform, I0)
 
         bound, _, _ = self.elbo.loss(
             mu, log_var, I01, I1, reduction='none')
-        return bound
+        return bound, transform, I01
 
     def sample_transformation(self, mu, log_var):
         std = torch.exp(log_var / 2)
