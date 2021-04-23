@@ -142,8 +142,8 @@ class GradNorm(nn.Module):
 
         d = dx + dy + (dz if self.ndims == 3 else 0)
         if self.reduction == "none":
-            # mean over channels. Keep spatial dimensions
-            return torch.mean(d, dim=1, keepdim=True)
+            # sum over channels. Keep spatial dimensions
+            return torch.sum(d, dim=1, keepdim=True)
         elif self.reduction == "mean":
             d /= self.ndims
             return torch.mean(d)
@@ -177,20 +177,18 @@ class JacobianDeterminant(nn.Module):
                     x[:, [0]] * y[:, [2]] * z[:, [1]])
 
         if self.preserve_size:
-            flow = F.pad(flow, [0, 1] * self.ndims, mode="replicate")
+            flow = F.pad(flow, [0, 1, 0, 1, 0, 1], mode="replicate")
 
         # map to target domain
         transform = flow + self.idty(flow)
 
         # get finite differences
         if self.ndims == 2:
-            dx = torch.abs(transform[:, :, 1:, :-1] -
-                           transform[:, :, :-1, :-1])
-            dy = torch.abs(transform[:, :, :-1, 1:] -
-                           transform[:, :, :-1, :-1])
-            jacdet = determinant_2d(dx, dy)
-            raise NotImplementedError(
-                'Code not checked for 2d images represented as 3d')
+            dx = torch.abs(transform[:, :, 1:, :-1, 0] -
+                           transform[:, :, :-1, :-1, 0])
+            dy = torch.abs(transform[:, :, :-1, 1:, 0] -
+                           transform[:, :, :-1, :-1, 0])
+            jacdet = determinant_2d(dx, dy).unsqueeze(-1)
         elif self.ndims == 3:
             dx = torch.abs(transform[:, :, 1:, :-1, :-1] -
                            transform[:, :, :-1, :-1, :-1])
@@ -199,8 +197,6 @@ class JacobianDeterminant(nn.Module):
             dz = torch.abs(transform[:, :, :-1, :-1, 1:] -
                            transform[:, :, :-1, :-1, :-1])
             jacdet = determinant_3d(dx, dy, dz)
-            raise NotImplementedError(
-                'Code not checked for 2d images represented as 3d')
 
         if self.reduction == "none":
             return jacdet

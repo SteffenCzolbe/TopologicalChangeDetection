@@ -27,6 +27,7 @@ def image_to_numpy(tensor):
     transforms a 2d or 3d torch.tensor to a numpy array.
     C x H x W x D becomes H x W x D x C
     1 x H x W x D becomes H x W x D
+    1 x H x W x 1 becomes H x W
     C x H x W becomes H x W x C
     1 x H x W becomes H x W
     """
@@ -35,9 +36,8 @@ def image_to_numpy(tensor):
     # channel to back
     permuted = np.moveaxis(array, 0, -1)
     # remove channel of size 1
-    if permuted.shape[-1] == 1:
-        permuted = permuted[..., 0]
-    return permuted
+    squeezed = np.squeeze(permuted)
+    return squeezed
 
 
 def load_nii_as_tensor(path, dtype=torch.float, return_affine=False):
@@ -58,6 +58,7 @@ def load_nii_as_tensor(path, dtype=torch.float, return_affine=False):
     affine = nii.affine
     return (tensor, affine) if return_affine else tensor
 
+
 def nan_check(tensor):
     if tensor.isnan().any() or tensor.isinf().any():
         raise Exception("Inf or NaN values detected during saving!")
@@ -74,7 +75,7 @@ def save_tensor_as_nii(path, tensor, affine=None, dtype=np.float):
         dtype: numpy dtype to cast to
     """
     nan_check(tensor)
-    
+
     if affine is None:
         affine = np.eye(4)
     else:
@@ -97,9 +98,8 @@ def save_tensor_as_np(path, tensor, dtype=np.float):
         dtype: numpy dtype to cast to
     """
     nan_check(tensor)
-    
+
     array = image_to_numpy(tensor).astype(dtype)
     with open(path, "wb") as f:
         np.save(f, array)
     return
-

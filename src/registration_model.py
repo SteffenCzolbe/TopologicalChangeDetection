@@ -33,20 +33,21 @@ class RegistrationModel(pl.LightningModule):
             dropout=self.hparams.dropout,
         )
         self.decoder = FixedDecoder(integrate=self.hparams.integrate)
-        if self.hparams.per_pixel_prior:
-            prior_param_size = [1] + list(self.hparams.data_dims)[1:]
-        else:
-            prior_param_size = (1,)
         self.elbo = ELBO(data_dims=self.hparams.data_dims,
-                         init_prior_log_alpha=-0.5,
-                         init_prior_log_beta=1,
-                         init_recon_log_var=-3.5,  # init close to optimum
-                         param_size=prior_param_size)
+                         use_analytical_solution=self.hparams.use_analytical_solution_for_alpha_beta,
+                         init_prior_log_alpha=self.hparams.prior_log_alpha,
+                         trainable_alpha=self.hparams.trainable_alpha,
+                         init_prior_log_beta=self.hparams.prior_log_beta,
+                         trainable_beta=self.hparams.trainable_beta,
+                         init_recon_log_var=self.hparams.recon_log_var,
+                         trainable_recon_var=self.hparams.trainable_recon_var,)
 
         # various components for loss caluclation and evaluation
         self.dice_overlap = torchreg.metrics.DiceOverlap(
             classes=list(range(self.hparams.data_classes))
         )
+        self.jacobian_determinant = torchreg.metrics.JacobianDeterminant(
+            reduction='none')
 
     def configure_optimizers(self):
         opt = torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
@@ -78,12 +79,14 @@ class RegistrationModel(pl.LightningModule):
             [torch.Tensor]: Pixel-wise upper bound on -log p(I1, I0)
         """
         mu, log_var = self.encoder(I0, I1)
-        transform = mu  # no sample during forward.
-        I01, _ = self.decoder(transform, I0)
+        transform = mu  # take mean during forward (no sample)
+        transform, transform_inv = self.decoder.get_transform(
+            mu, inverse=True)  # get transform and inverse
+        I01, _ = self.decoder.apply_transform(transform, I0)  # morph image
 
-        bound, _, _ = self.elbo.loss(
-            mu, log_var, I01, I1, reduction='none')
-        return bound, transform, I01
+        bound_1, _, _ = self.elbo.loss(
+            mu, log_var, I01, I1, reduction='none')  # calculate bound
+        return bound_1, transform, I01
 
     def sample_transformation(self, mu, log_var):
         std = torch.exp(log_var / 2)
@@ -114,6 +117,9 @@ class RegistrationModel(pl.LightningModule):
         loss, recon_loss, kl_loss = self.elbo.loss(
             mu, log_var, I01, I1, reduction='mean')
 
+        with torch.no_grad():
+            jacdet = self.jacobian_determinant(mu)
+
         logs = {
             "loss": loss,
             "recon_loss": recon_loss,
@@ -121,7 +127,9 @@ class RegistrationModel(pl.LightningModule):
             "mean_latent_log_var": log_var.mean(),
             "prior_log_alpha": self.elbo.prior_log_alpha.mean(),
             "prior_log_beta": self.elbo.prior_log_beta.mean(),
-            "recon_log_var": self.elbo.recon_log_var.mean()
+            "recon_log_var": self.elbo.recon_log_var.mean(),
+            "transformation_smoothness": -jacdet.var(),
+            "transformation_folding": (jacdet <= 0).float().mean(),
         }
 
         if S0 is not None:
@@ -172,7 +180,25 @@ class RegistrationModel(pl.LightningModule):
             "--integrate", action="store_true", help="set to integrate flow field."
         )
         parser.add_argument(
-            "--per_pixel_prior", action="store_true", help="set to train pixel-specific priors, instead of one prior for all pixels."
+            "--use_analytical_solution_for_alpha_beta", action="store_true", help="Set to use analytical solution for prior parameters alpha, beta"
+        )
+        parser.add_argument(
+            "--prior_log_alpha", type=float, default=-4, help="Prior parameter log alpha"
+        )
+        parser.add_argument(
+            "--trainable_alpha", action="store_true", help="Set to make trainable"
+        )
+        parser.add_argument(
+            "--prior_log_beta", type=float, default=7.8, help="Parameter initialization"
+        )
+        parser.add_argument(
+            "--trainable_beta", action="store_true", help="Set to make trainable"
+        )
+        parser.add_argument(
+            "--recon_log_var", type=float, default=-5, help="Parameter initialization"
+        )
+        parser.add_argument(
+            "--trainable_recon_var", action="store_true", help="Set to make trainable"
         )
         parser.add_argument(
             "--bnorm", action="store_true", help="set to use batchnormalization."
@@ -186,7 +212,7 @@ class RegistrationModel(pl.LightningModule):
             "--lr_decline_patience", type=int, default=10, help="LR halving after x epochs of no improvement. Default: 10"
         )
         parser.add_argument(
-            "--conv_layers_per_stage", type=int, default=2, help="Convolutional layer sper network stage. Default: 2"
+            "--conv_layers_per_stage", type=int, default=1, help="Convolutional layer sper network stage. Default: 2"
         )
 
         return parent_parser
