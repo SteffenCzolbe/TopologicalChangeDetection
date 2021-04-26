@@ -71,13 +71,14 @@ class ELBO(nn.Module):
         var = torch.sum(torch.exp(log_var), dim=1, keepdim=True)
         diffusion_reg = self.grad_norm(
             mu) + self.grad_norm(mu.flip(dims=[2, 3, 4]))
-        translation_component = 1 / p * torch.sum(mu, dim=[1, 2, 3, 4])**2
+        translation_component = 1 / p * \
+            torch.sum(mu, dim=[1, 2, 3, 4], keepdim=True)**2
         log_det_p_parameterized = (
             - (n - 1) / p * self.prior_log_alpha
             - self.prior_log_beta / p
         )
         log_det_p_analytical = (
-            (n-1) * torch.log(expect(degree * var + diffusion_reg))
+            (n-1) / p * torch.log(expect(degree * var + diffusion_reg))
             + torch.log(expect(var + translation_component))
         )
         log_det_q = torch.sum(log_var, dim=1, keepdim=True)
@@ -86,7 +87,7 @@ class ELBO(nn.Module):
             # analytical solution for alpha, beta
             loss = 0.5 * (log_det_p_analytical
                           - log_det_q
-                          + (n-1) * (degree * var + diffusion_reg)
+                          + (n-1)/p * (degree * var + diffusion_reg)
                           / expect(degree * var + diffusion_reg)
                           + (var + translation_component)
                           / expect(var + translation_component)
