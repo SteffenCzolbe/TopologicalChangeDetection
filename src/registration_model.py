@@ -79,6 +79,8 @@ class RegistrationModel(pl.LightningModule):
             [torch.Tensor]: Pixel-wise upper bound on -log p(I1, I0)
         """
         mu, log_var = self.encoder(I0, I1)
+        if self.hparams.fixed_var:
+            log_var = -10. * torch.ones_like(log_var)
         transform = mu  # take mean during forward (no sample)
         transform, transform_inv = self.decoder.get_transform(
             mu, inverse=True)  # get transform and inverse
@@ -111,6 +113,8 @@ class RegistrationModel(pl.LightningModule):
             Dict[str, float]: log values
         """
         mu, log_var = self.encoder(I0, I1)
+        if self.hparams.get('fixed_var'):
+            log_var = -10. * torch.ones_like(log_var)
         transform = self.sample_transformation(mu, log_var)
         I01, S01 = self.decoder(transform, I0, seg=S0)
 
@@ -182,6 +186,8 @@ class RegistrationModel(pl.LightningModule):
         parser.add_argument(
             "--use_analytical_solution_for_alpha_beta", action="store_true", help="Set to use analytical solution for prior parameters alpha, beta"
         )
+        parser.add_argument(
+            "--fixed_var", action="store_true", help="Fix the variance of the transformation")
         parser.add_argument(
             "--prior_log_alpha", type=float, default=-4, help="Prior parameter log alpha"
         )
