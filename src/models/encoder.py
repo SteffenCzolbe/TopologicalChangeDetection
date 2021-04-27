@@ -14,13 +14,14 @@ class Encoder(nn.Module):
     """
 
     def __init__(
-        self, in_channels, enc_feat, dec_feat, conv_layers_per_stage, bnorm=False, dropout=True
+        self, in_channels, enc_feat, dec_feat, conv_layers_per_stage, fixed_model_var=False, bnorm=False, dropout=True
     ):
         """ 
         Parameters:
             in_channels: channels of the input
             enc_feat: List of encoder filters. e.g. [16, 32, 32, 32]
             dec_feat: List of decoder filters. e.g. [32, 32, 32, 16]
+            fixed_model_var: set value to fix model var
             bnorm: bool. Perform batch-normalization?
             dropout: bool. Perform dropout?
         """
@@ -45,6 +46,7 @@ class Encoder(nn.Module):
             in_channels=unet_out_channels, init_mean=0, init_std=1e-5)
         self.log_var = FlowPredictor(
             in_channels=unet_out_channels, init_mean=-3, init_std=1e-2)
+        self.fixed_model_var = fixed_model_var
 
     def forward(self, x0, x1):
         # feed through network
@@ -53,6 +55,8 @@ class Encoder(nn.Module):
         h = self.smooth(h)
         mu = self.mu(h)
         log_var = self.log_var(h)
+        if self.fixed_model_var is not None:
+            log_var = self.fixed_model_var * torch.ones_like(log_var)
 
         return mu, log_var
 

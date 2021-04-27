@@ -29,18 +29,18 @@ class RegistrationModel(pl.LightningModule):
             enc_feat=self.hparams.channels,
             dec_feat=self.hparams.channels[::-1],
             conv_layers_per_stage=self.hparams.conv_layers_per_stage,
+            fixed_model_var=-10. if self.hparams.fixed_model_var else None,
             bnorm=self.hparams.bnorm,
             dropout=self.hparams.dropout,
         )
         self.decoder = FixedDecoder(integrate=self.hparams.integrate)
         self.elbo = ELBO(data_dims=self.hparams.data_dims,
-                         use_analytical_solution=self.hparams.use_analytical_solution_for_alpha_beta,
-                         init_prior_log_alpha=self.hparams.prior_log_alpha,
-                         trainable_alpha=self.hparams.trainable_alpha,
-                         init_prior_log_beta=self.hparams.prior_log_beta,
-                         trainable_beta=self.hparams.trainable_beta,
-                         init_recon_log_var=self.hparams.recon_log_var,
-                         trainable_recon_var=self.hparams.trainable_recon_var,)
+                         use_analytical_prior=self.hparams.analytical_prior,
+                         init_prior_log_alpha=self.hparams.prior_weights_init[0],
+                         init_prior_log_beta=self.hparams.prior_weights_init[1],
+                         trainable_prior=self.hparams.trainable_prior,
+                         init_recon_log_var=self.hparams.recon_weight_init,
+                         trainable_recon_var=self.hparams.trainable_recon,)
 
         # various components for loss caluclation and evaluation
         self.dice_overlap = torchreg.metrics.DiceOverlap(
@@ -79,8 +79,6 @@ class RegistrationModel(pl.LightningModule):
             [torch.Tensor]: Pixel-wise upper bound on -log p(I1, I0)
         """
         mu, log_var = self.encoder(I0, I1)
-        if self.hparams.fixed_var:
-            log_var = -10. * torch.ones_like(log_var)
         transform = mu  # take mean during forward (no sample)
         transform, transform_inv = self.decoder.get_transform(
             mu, inverse=True)  # get transform and inverse
@@ -113,8 +111,6 @@ class RegistrationModel(pl.LightningModule):
             Dict[str, float]: log values
         """
         mu, log_var = self.encoder(I0, I1)
-        if self.hparams.get('fixed_var'):
-            log_var = -10. * torch.ones_like(log_var)
         transform = self.sample_transformation(mu, log_var)
         I01, S01 = self.decoder(transform, I0, seg=S0)
 
@@ -184,27 +180,28 @@ class RegistrationModel(pl.LightningModule):
             "--integrate", action="store_true", help="set to integrate flow field."
         )
         parser.add_argument(
-            "--use_analytical_solution_for_alpha_beta", action="store_true", help="Set to use analytical solution for prior parameters alpha, beta"
+            "--analytical_prior", action="store_true", help="Set to use analytical solution for prior parameters alpha, beta"
         )
         parser.add_argument(
-            "--fixed_var", action="store_true", help="Fix the variance of the transformation")
+            "--fixed_model_var", action="store_true", help="Fix the variance of the transformation")
         parser.add_argument(
-            "--prior_log_alpha", type=float, default=-4, help="Prior parameter log alpha"
+            "--trainable_prior",
+            action="store_true", help="Set to make trainable"
         )
         parser.add_argument(
-            "--trainable_alpha", action="store_true", help="Set to make trainable"
+            "--prior_weights_init",
+            nargs=2,
+            type=float,
+            default=[-4., 5.], help="Initialization of log-prior weights: alpha, beta. Default: -4, 5"
         )
         parser.add_argument(
-            "--prior_log_beta", type=float, default=7.8, help="Parameter initialization"
+            "--trainable_recon", action="store_true", help="Set to make trainable"
         )
         parser.add_argument(
-            "--trainable_beta", action="store_true", help="Set to make trainable"
+            "--recon_weight_init", type=float, default=-5, help="Parameter initialization"
         )
         parser.add_argument(
-            "--recon_log_var", type=float, default=-5, help="Parameter initialization"
-        )
-        parser.add_argument(
-            "--trainable_recon_var", action="store_true", help="Set to make trainable"
+            "--semantic_loss", action="store_true", help="set to use semantic reconstruction loss."
         )
         parser.add_argument(
             "--bnorm", action="store_true", help="set to use batchnormalization."

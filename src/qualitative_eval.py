@@ -36,17 +36,16 @@ def get_batch(dm1, dm2, device):
 def predict(model, I0, I1):
     bound, transform, I01 = model.forward(I0, I1)
     u, log_var = model.encoder(I0, I1)
-    flowfield_length = torch.sum(u**2, dim=1, keepdim=True)
-    transform_length = torch.sum(transform**2, dim=1, keepdim=True)
-    log_var = torch.mean(log_var, dim=1, keepdim=True)
+    recon_loss = model.elbo.recon_loss(I01, I1, reduction="none")
+    kl_div = model.elbo.kl_loss(u, log_var, reduction="none")
 
-    return bound, I01, transform, flowfield_length, transform_length, log_var
+    return bound, I01, transform, recon_loss, kl_div
 
 
-def plot(file, I0, I01, I1, bound, flowfield_length, transform_length, log_var):
+def plot(file, I0, I01, I1, bound, recon_loss, kl_div):
     rows = 8
     # set-up fig
-    fig = viz.Fig(rows, 7, None, figsize=(5, 8))
+    fig = viz.Fig(rows, 6, None, figsize=(5, 8))
     # adjust subplot spacing
     fig.fig.subplots_adjust(hspace=0.05, wspace=0.05)
 
@@ -59,12 +58,10 @@ def plot(file, I0, I01, I1, bound, flowfield_length, transform_length, log_var):
                      title="I1" if row == 0 else None)
         fig.plot_img(row, 3, bound[row], cmap='jet',
                      title="p(I1 | I0)" if row == 0 else None)
-        fig.plot_img(row, 4, flowfield_length[row], cmap='jet',
-                     title="$||u||^2$" if row == 0 else None)
-        fig.plot_img(row, 5, transform_length[row], cmap='jet',
-                     title="$||\Phi||^2$" if row == 0 else None)
-        fig.plot_img(row, 6, log_var[row], cmap='jet',
-                     title="$\log \sigma^2$" if row == 0 else None)
+        fig.plot_img(row, 4, recon_loss[row], cmap='jet',
+                     title="$log p(J|I, \Phi)$" if row == 0 else None)
+        fig.plot_img(row, 5, kl_div[row], cmap='jet',
+                     title="$D_{KL}$" if row == 0 else None)
 
     fig.save(file + ".pdf", close=False)
     fig.save(file + ".png")
@@ -75,10 +72,10 @@ def main(hparams):
     model, dm1, dm2 = load_module_and_dataset(hparams)
     model.to(device)
     I0, I1 = get_batch(dm1, dm2, device)
-    bound, I01, transform, flowfield_length, transform_length, log_var = predict(
+    bound, I01, transform, recon_loss, kl_div = predict(
         model, I0, I1)
     plot(hparams.file, I0, I01, I1, bound,
-         flowfield_length, transform_length, log_var)
+         recon_loss, kl_div)
 
 
 if __name__ == "__main__":
