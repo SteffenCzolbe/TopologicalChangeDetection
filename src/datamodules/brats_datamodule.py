@@ -10,7 +10,7 @@ import random
 
 
 class BraTSDataModule(pl.LightningDataModule):
-    def __init__(self, pairs=True, atlasreg=True, volumetric=True, loadseg=True, data_dir: str = "../BraTS/", batch_size: int = 32):
+    def __init__(self, pairs=True, atlasreg=True, volumetric=True, load_train_seg=False, load_val_seg=True, data_dir: str = "../BraTS/", batch_size: int = 32):
         """The BraTS datamodule.
 
         Args:
@@ -30,7 +30,8 @@ class BraTSDataModule(pl.LightningDataModule):
             'Normal', 'Necrotic/Cystic Core', 'Edema', 'Enhancing Core']
         self.num_workers = 32
         self.pairs = pairs
-        self.loadseg = loadseg
+        self.load_train_seg = load_train_seg
+        self.load_val_seg = load_val_seg
         self.atlasreg = atlasreg
         self.volumetric = volumetric
 
@@ -42,7 +43,7 @@ class BraTSDataModule(pl.LightningDataModule):
     def test_dataloader(self):
         dataset = BraTSDataset(
             self.data_dir, "train", pairs=self.pairs, atlasreg=self.atlasreg,
-            loadseg=self.loadseg, volumetric=self.volumetric, augmentation=None,
+            loadseg=self.load_val_seg, volumetric=self.volumetric, augmentation=None,
         )
         return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers)
 
@@ -93,17 +94,21 @@ class BraTSDataset(Dataset):
             lambda t: t.float() / 128, types_to_apply=[tio.INTENSITY])
         enumerate_labels_transform = tio.Lambda(
             enumerate_labels, types_to_apply=[tio.LABEL])
+        to_long_transform = tio.Lambda(
+            lambda t: t.long(), types_to_apply=[tio.LABEL])
 
         if volumetric:
             self.preprocess = tio.Compose([
                 intensity_scale_transform,
-                enumerate_labels_transform
+                enumerate_labels_transform,
+                to_long_transform,
             ])
         else:
             self.preprocess = tio.Compose([
                 to_2d_transform,
                 intensity_scale_transform,
-                enumerate_labels_transform
+                enumerate_labels_transform,
+                to_long_transform,
             ])
 
         # load image paths from csv
@@ -173,9 +178,9 @@ class BraTSDataset(Dataset):
                 subject = tio.Subject(I0=I0, I1=I1)
         else:
             if self.loadseg:
-                subject = tio.Subject(I0=I0, S0=S0)
+                subject = tio.Subject(I=I0, S=S0)
             else:
-                subject = tio.Subject(I0=I0)
+                subject = tio.Subject(I=I0)
 
         # apply preprocessing and augmentation
         subject = self.preprocess(subject)

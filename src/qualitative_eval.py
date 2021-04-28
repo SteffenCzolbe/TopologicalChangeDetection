@@ -9,8 +9,10 @@ import src.util as util
 
 def load_module_and_dataset(hparams):
     # load data
-    dm1 = util.load_datamodule_from_name(hparams.ds1, batch_size=32)
-    dm2 = util.load_datamodule_from_name(hparams.ds2, batch_size=32)
+    dm1 = util.load_datamodule_from_name(
+        hparams.ds1, batch_size=32, pairs=False)
+    dm2 = util.load_datamodule_from_name(
+        hparams.ds2, batch_size=32, pairs=False)
     # load model
     model = util.load_model_from_logdir(hparams.weights)
     model.eval()
@@ -20,15 +22,15 @@ def load_module_and_dataset(hparams):
 def get_batch(dm1, dm2, device):
     dl1 = dm1.test_dataloader()
     batch1 = next(iter(dl1))
-    I0 = batch1['I0']['data'].to(device)
+    I0 = batch1['I']['data'].to(device)
 
     dl2 = dm2.test_dataloader()
     batch2 = next(iter(dl2))
-    I1 = batch2['I1']['data'].to(device)
+    I1 = batch2['I']['data'].to(device)
 
     for i in range(len(I0)):
         print(
-            f'brats intensity: {I1[i].mean()}, brain intensity: {I0[i].mean()}, brats file {batch1["I1"]["path"][i]}')
+            f'ds1 intensity: {I0[i].mean()}, ds1 intensity: {I1[i].mean()}')
 
     return I0, I1
 

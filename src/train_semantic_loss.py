@@ -1,13 +1,13 @@
 from argparse import ArgumentParser
 import pytorch_lightning as pl
-from src.registration_model import RegistrationModel
+from src.semantic_loss import SemanticLossModel
 import src.util as util
 
 
 def build_arg_parser():
     parser = ArgumentParser()
     parser = pl.Trainer.add_argparse_args(parser)
-    parser = RegistrationModel.add_model_specific_args(parser)
+    parser = SemanticLossModel.add_model_specific_args(parser)
     parser = add_program_level_args(parser)
     return parser
 
@@ -37,7 +37,7 @@ def add_program_level_args(parent_parser):
 
 def load_datamodule_from_params(hparams):
     datamodule = util.load_datamodule_from_name(
-        hparams.dataset, batch_size=hparams.batch_size, pairs=True)
+        hparams.dataset, batch_size=hparams.batch_size, pairs=False, load_train_seg=True)
     # pass data properties to model
     hparams.data_dims = datamodule.dims
     hparams.data_classes = datamodule.class_cnt
@@ -46,11 +46,11 @@ def load_datamodule_from_params(hparams):
 
 def load_model_from_hparams(hparams):
     if hparams.load_from_checkpoint:
-        model = RegistrationModel.load_from_checkpoint(
+        model = SemanticLossModel.load_from_checkpoint(
             checkpoint_path=hparams.load_from_checkpoint)
         hparams.resume_from_checkpoint = hparams.load_from_checkpoint
     else:
-        model = RegistrationModel(hparams)
+        model = SemanticLossModel(hparams)
 
     return model, hparams
 
@@ -58,11 +58,11 @@ def load_model_from_hparams(hparams):
 def config_trainer_from_hparams(hparams):
     # save model with best validation loss
     checkpointing_callback = pl.callbacks.ModelCheckpoint(
-        monitor="val/seg_dice_overlap", mode="max"
+        monitor="val/dice_overlap", mode="max"
     )
     # early stopping
     early_stop_callback = pl.callbacks.EarlyStopping(
-        monitor="val/seg_dice_overlap", min_delta=0.00, patience=hparams.early_stop_patience, verbose=True, mode="max"
+        monitor="val/dice_overlap", min_delta=0.00, patience=hparams.early_stop_patience, verbose=True, mode="max"
     )
 
     # trainer
@@ -90,6 +90,8 @@ def main(hparams):
 
 
 if __name__ == "__main__":
+    # add model args
     parser = build_arg_parser()
+
     hparams = parser.parse_args()
     main(hparams)

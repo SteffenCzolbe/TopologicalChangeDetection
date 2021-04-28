@@ -10,7 +10,7 @@ import random
 
 
 class BrainMRIDataModule(pl.LightningDataModule):
-    def __init__(self, pairs=True, atlasreg=True, volumetric=True, loadseg=True, data_dir: str = "../brain_mris/", batch_size: int = 32):
+    def __init__(self, pairs=True, atlasreg=True, volumetric=True, load_train_seg=True, load_val_seg=True, data_dir: str = "../brain_mris/", batch_size: int = 32):
         """The Brain-MRI datamodule, combining the train, validation and test set.
 
         Args:
@@ -30,7 +30,8 @@ class BrainMRIDataModule(pl.LightningDataModule):
                             "3rd Ventricle", "4th Ventricle", "Brain Stem", "Hippocampus", "Amygdala", "CSF", "Accumbens area", "Ventral DC", "Vessel", "Choroid plexus", "5th Ventricle", "Cingulate Cortex", "WM hypointensities"]
         self.num_workers = 32
         self.pairs = pairs
-        self.loadseg = loadseg
+        self.load_train_seg = load_train_seg
+        self.load_val_seg = load_val_seg
         self.atlasreg = atlasreg
         self.volumetric = volumetric
 
@@ -42,7 +43,7 @@ class BrainMRIDataModule(pl.LightningDataModule):
     def train_dataloader(self):
         dataset = BrainMRIDataset(
             self.data_dir, "train", pairs=self.pairs, atlasreg=self.atlasreg,
-            loadseg=False, volumetric=self.volumetric,
+            loadseg=self.load_train_seg, volumetric=self.volumetric,
             limitsize=4000, deterministic=False, augmentation=None,
         )
         return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers)
@@ -50,7 +51,7 @@ class BrainMRIDataModule(pl.LightningDataModule):
     def val_dataloader(self):
         dataset = BrainMRIDataset(
             self.data_dir, "val", pairs=self.pairs, atlasreg=self.atlasreg,
-            loadseg=self.loadseg, volumetric=self.volumetric,
+            loadseg=self.load_val_seg, volumetric=self.volumetric,
             limitsize=250, deterministic=True, augmentation=None,
         )
         return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers)
@@ -58,7 +59,7 @@ class BrainMRIDataModule(pl.LightningDataModule):
     def test_dataloader(self):
         dataset = BrainMRIDataset(
             self.data_dir, "test", pairs=self.pairs, atlasreg=self.atlasreg,
-            loadseg=self.loadseg, volumetric=self.volumetric,
+            loadseg=self.load_val_seg, volumetric=self.volumetric,
             limitsize=250, deterministic=True, augmentation=None,
         )
         return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers)
@@ -98,15 +99,19 @@ class BrainMRIDataset(Dataset):
                                      types_to_apply=[tio.INTENSITY, tio.LABEL])
         intensity_scale_transform = tio.Lambda(
             lambda t: t.float() / 128, types_to_apply=[tio.INTENSITY])
+        to_long_transform = tio.Lambda(
+            lambda t: t.long(), types_to_apply=[tio.LABEL])
 
         if volumetric:
             self.preprocess = tio.Compose([
                 intensity_scale_transform,
+                to_long_transform,
             ])
         else:
             self.preprocess = tio.Compose([
                 to_2d_transform,
                 intensity_scale_transform,
+                to_long_transform,
             ])
 
         # load image paths from csv
@@ -180,9 +185,9 @@ class BrainMRIDataset(Dataset):
                 subject = tio.Subject(I0=I0, I1=I1)
         else:
             if self.loadseg:
-                subject = tio.Subject(I0=I0, S0=S0)
+                subject = tio.Subject(I=I0, S=S0)
             else:
-                subject = tio.Subject(I0=I0)
+                subject = tio.Subject(I=I0)
 
         # apply preprocessing and augmentation
         subject = self.preprocess(subject)

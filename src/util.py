@@ -35,7 +35,7 @@ def get_supported_datamodules():
     return supported_datamodels
 
 
-def load_datamodule_from_name(dataset_name, batch_size=32):
+def load_datamodule_from_name(dataset_name, batch_size=32, pairs=True, load_train_seg=False):
     """Loads a Datamodule
 
     Args:
@@ -52,7 +52,8 @@ def load_datamodule_from_name(dataset_name, batch_size=32):
         )
 
     datamodule_cls, args = supported_datamodels[dataset_name]
-    datamodule = datamodule_cls(batch_size=batch_size, **args)
+    datamodule = datamodule_cls(
+        batch_size=batch_size, pairs=pairs, load_train_seg=load_train_seg, **args)
 
     if datamodule.dims[-1] == 1:
         torchreg.settings.set_ndims(2)
