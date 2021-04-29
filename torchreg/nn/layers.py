@@ -255,7 +255,13 @@ class GridSampler(nn.Module):
             align_corners=True,
         )
 
-        # if self.ndims == 2:
-        #    sampled = sampled.unsqueeze(-1)
-
         return sampled
+
+
+if __name__ == 'main':
+    settings.set_ndims(2)
+    img = torch.rand(2, 1, 6, 7, 1)
+    transform = torch.zeros(2, 3, 6, 7, 1)
+    sampler = SpatialTransformer()
+    img_sampled = sampler(img, transform)
+    print("images identical:", torch.allclose(img, img_sampled))

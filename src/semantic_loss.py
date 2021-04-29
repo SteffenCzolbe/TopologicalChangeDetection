@@ -71,6 +71,32 @@ class SemanticLossModel(pl.LightningModule):
         y_pred = torch.argmax(y_pred_onehot, dim=1, keepdim=True)
         return y_pred, y_pred_onehot, y_pred_raw
 
+    def extract_features(self, x):
+        """
+        Extracts deep features from the input.
+        """
+        self.eval()
+        feat = []
+        for stage in self.net.encoder:
+            x = stage(x)
+            feat.append(x)
+        return feat
+
+    def augment_image(self, x):
+        """
+        Augments an image by extracting deep features.
+        """
+        H, W, D = x.shape[2:]
+        # get features
+        feats = self.extract_features(x)
+
+        # expand deeper layers to same dimensionality as input
+        feats = [F.interpolate(feat, size=(H, W, D), mode='trilinear')
+                 for feat in feats]
+
+        # stack along channel dimension
+        return torch.cat(feats, dim=1)
+
     def step(self, x: torch.Tensor, y_true: torch.Tensor) -> Dict[str, float]:
         # predict
         y_pred, y_pred_onehot, y_pred_raw = self.forward(x)

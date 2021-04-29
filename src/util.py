@@ -103,6 +103,11 @@ def load_model_from_logdir(model_logdir):
     return model
 
 
+def freeze_model(model):
+    for param in model.parameters():
+        param.requires_grad = False
+
+
 def entropy(p):
     """
     Calculates the entropy (uncertainty) of p

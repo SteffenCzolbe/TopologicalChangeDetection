@@ -55,6 +55,8 @@ class UNet(nn.Module):
         # pre-calculate return sizes and channels
         self.output_length = len(dec_feat) + 1
         self.output_channels = [enc_feat[-1]] + decoder_out_channels
+        self.enc_feat = enc_feat
+        self.dec_feat = dec_feat
 
         # configure decoder (up-sampling path)
         self.decoder = nn.ModuleList()

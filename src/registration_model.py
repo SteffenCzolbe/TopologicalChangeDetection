@@ -9,7 +9,8 @@ import torchreg
 from .models.encoder import Encoder
 from .models.decoder import FixedDecoder
 from .models.elbo import ELBO
-import pprint
+import src.util as util
+from src.semantic_loss import SemanticLossModel
 from typing import Dict, Optional
 
 
@@ -24,6 +25,9 @@ class RegistrationModel(pl.LightningModule):
 
         # set net
         self.ndims = torchreg.settings.get_ndims()
+        if self.hparams.semantic_augmentation:
+            self.load_semantic_augmentation_model(
+                model_path=self.hparams.semantic_augmentation)
         self.encoder = Encoder(
             in_channels=self.hparams.data_dims[0],
             enc_feat=self.hparams.channels,
@@ -36,6 +40,7 @@ class RegistrationModel(pl.LightningModule):
         self.decoder = FixedDecoder(integrate=self.hparams.integrate)
         self.elbo = ELBO(data_dims=self.hparams.data_dims,
                          use_analytical_prior=self.hparams.analytical_prior,
+                         semantic_loss=self.hparams.semantic_loss,
                          init_prior_log_alpha=self.hparams.prior_weights_init[0],
                          init_prior_log_beta=self.hparams.prior_weights_init[1],
                          trainable_prior=self.hparams.trainable_prior,
@@ -48,6 +53,18 @@ class RegistrationModel(pl.LightningModule):
         )
         self.jacobian_determinant = torchreg.metrics.JacobianDeterminant(
             reduction='none')
+
+    def load_semantic_augmentation_model(self, model_path):
+        # load model
+        model_checkpoint = util.get_checkoint_path_from_logdir(model_path)
+        self.semantic_augmentation_model = SemanticLossModel.load_from_checkpoint(
+            model_checkpoint)
+        util.freeze_model(self.semantic_augmentation_model)
+        # adjust data size for augmented data
+        channel_cnt = sum(self.semantic_augmentation_model.net.enc_feat)
+        data_dims = self.hparams.data_dims
+        data_dims = (channel_cnt, *data_dims[1:])
+        self.hparams.data_dims = data_dims
 
     def configure_optimizers(self):
         opt = torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
@@ -78,6 +95,7 @@ class RegistrationModel(pl.LightningModule):
         Returns:
             [torch.Tensor]: Pixel-wise upper bound on -log p(I1, I0)
         """
+        I0, I1 = self.semantic_augmentation(I0, I1)
         mu, log_var = self.encoder(I0, I1)
         transform = mu  # take mean during forward (no sample)
         transform, transform_inv = self.decoder.get_transform(
@@ -87,6 +105,13 @@ class RegistrationModel(pl.LightningModule):
         bound_1, _, _ = self.elbo.loss(
             mu, log_var, I01, I1, reduction='none')  # calculate bound
         return bound_1, transform, I01
+
+    def semantic_augmentation(self, I0, I1):
+        if self.hparams.semantic_augmentation:
+            with torch.no_grad():
+                I0 = self.semantic_augmentation_model.augment_image(I0)
+                I1 = self.semantic_augmentation_model.augment_image(I1)
+        return I0, I1
 
     def sample_transformation(self, mu, log_var):
         std = torch.exp(log_var / 2)
@@ -110,6 +135,7 @@ class RegistrationModel(pl.LightningModule):
         Returns:
             Dict[str, float]: log values
         """
+        I0, I1 = self.semantic_augmentation(I0, I1)
         mu, log_var = self.encoder(I0, I1)
         transform = self.sample_transformation(mu, log_var)
         I01, S01 = self.decoder(transform, I0, seg=S0)
@@ -201,7 +227,10 @@ class RegistrationModel(pl.LightningModule):
             "--recon_weight_init", type=float, default=-5, help="Parameter initialization"
         )
         parser.add_argument(
-            "--semantic_loss", action="store_true", help="set to use semantic reconstruction loss."
+            "--semantic_loss", type=str, help="Path to semantic model. Set to use semantic reconstruction loss."
+        )
+        parser.add_argument(
+            "--semantic_augmentation", type=str, help="Path to semantic model. Set to use semantic reconstruction loss."
         )
         parser.add_argument(
             "--bnorm", action="store_true", help="set to use batchnormalization."
