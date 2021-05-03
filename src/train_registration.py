@@ -58,11 +58,11 @@ def load_model_from_hparams(hparams):
 def config_trainer_from_hparams(hparams):
     # save model with best validation loss
     checkpointing_callback = pl.callbacks.ModelCheckpoint(
-        monitor="val/seg_dice_overlap", mode="max"
+        monitor="val/loss", mode="max"
     )
     # early stopping
     early_stop_callback = pl.callbacks.EarlyStopping(
-        monitor="val/seg_dice_overlap", min_delta=0.00, patience=hparams.early_stop_patience, verbose=True, mode="max"
+        monitor="val/loss", min_delta=0.00, patience=hparams.early_stop_patience, verbose=True, mode="max"
     )
 
     # trainer
