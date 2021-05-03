@@ -114,16 +114,17 @@ class BraTSDataset(Dataset):
         # load image paths from csv
         df = pd.read_csv(os.path.join(
             self.data_dir, "metadata.csv"), dtype=str)
-        df.set_index("subject_id", inplace=True)
-        subjects = glob.glob(os.path.join(
-            self.data_dir, "preprocessed_data", "BraTS20_Training*"))
+        subjects = df.loc[(df['SPLIT'] == "train") & (
+            df['AUTO_PROCESSING'] == "OK")]['subject_id'].values
 
         # gather list of files
         self.image_nii_files = list(
-            map(lambda s: os.path.join(s, "t1_aligned_normalized.nii.gz"), subjects)
+            map(lambda s: os.path.join(self.data_dir, 'preprocessed_data',
+                                       s, "t1_aligned_normalized.nii.gz"), subjects)
         )
         self.image_nii_label_files = list(
-            map(lambda s: os.path.join(s, "seg_aligned.nii.gz"), subjects)
+            map(lambda s: os.path.join(self.data_dir,
+                                       'preprocessed_data', s, "seg_aligned.nii.gz"), subjects)
         )
 
         # load atlas
@@ -192,14 +193,14 @@ class BraTSDataset(Dataset):
 
 if __name__ == '__main__':
     batchsize = 4
-    dm = BraTSDataModule(pairs=False, volumetric=False,
-                         loadseg=True, batch_size=batchsize)
+    dm = BraTSDataModule(pairs=False, volumetric=False, batch_size=batchsize)
     print('size: ', dm.dims)
+    print('length: ', len(dm.test_dataloader()))
 
     # load image
     dataloader = dm.test_dataloader()
     batch = next(iter(dataloader))
-    image = batch['S0']
+    image = batch['S']
     print(image["data"].unique())
 
     print('shape: ', image["data"][0].shape)

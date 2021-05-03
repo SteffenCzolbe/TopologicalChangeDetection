@@ -28,10 +28,6 @@ def get_batch(dm1, dm2, device):
     batch2 = next(iter(dl2))
     I1 = batch2['I']['data'].to(device)
 
-    for i in range(len(I0)):
-        print(
-            f'ds1 intensity: {I0[i].mean()}, ds1 intensity: {I1[i].mean()}')
-
     return I0, I1
 
 
