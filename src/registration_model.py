@@ -25,7 +25,7 @@ class RegistrationModel(pl.LightningModule):
 
         # set net
         self.ndims = torchreg.settings.get_ndims()
-        if self.hparams.semantic_augmentation:
+        if self.hparams.get('semantic_augmentation'):
             self.load_semantic_augmentation_model(
                 model_path=self.hparams.semantic_augmentation)
         self.encoder = Encoder(
@@ -37,7 +37,8 @@ class RegistrationModel(pl.LightningModule):
             bnorm=self.hparams.bnorm,
             dropout=self.hparams.dropout,
         )
-        self.decoder = FixedDecoder(integrate=self.hparams.integrate)
+        self.decoder = FixedDecoder(
+            integration_steps=self.hparams.get('integration_steps'))
         self.elbo = ELBO(data_dims=self.hparams.data_dims,
                          use_analytical_prior=self.hparams.analytical_prior,
                          semantic_loss=self.hparams.semantic_loss,
@@ -107,7 +108,7 @@ class RegistrationModel(pl.LightningModule):
         return bound_1, transform, I01
 
     def semantic_augmentation(self, I0, I1):
-        if self.hparams.semantic_augmentation:
+        if self.hparams.get('semantic_augmentation'):
             with torch.no_grad():
                 I0 = self.semantic_augmentation_model.augment_image(I0)
                 I1 = self.semantic_augmentation_model.augment_image(I1)
@@ -203,7 +204,7 @@ class RegistrationModel(pl.LightningModule):
             help="U-Net encoder channels. Decoder uses the reverse. Defaukt: [64, 128, 256, 512]",
         )
         parser.add_argument(
-            "--integrate", action="store_true", help="set to integrate flow field."
+            "--integration_steps", type=int, default=0, help="Itegration steps on the flow field. Default: 0 (disabled)"
         )
         parser.add_argument(
             "--analytical_prior", action="store_true", help="Set to use analytical solution for prior parameters alpha, beta"

@@ -3,11 +3,11 @@ import torchreg.nn as tnn
 
 
 class FixedDecoder(nn.Module):
-    def __init__(self, integrate=False):
+    def __init__(self, integration_steps=0):
         super().__init__()
         self.transformer = tnn.SpatialTransformer()
         self.integrate = tnn.FlowIntegration(
-            nsteps=4) if integrate else None
+            nsteps=integration_steps) if integration_steps else None
 
     def forward(self, flow_field, I, seg=None):
         transform = self.get_transform(flow_field, inverse=False)

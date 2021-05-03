@@ -73,7 +73,7 @@ class ELBO(nn.Module):
         # as the scalar will be expanded (broadcasted) to size p during summation of the loss terms
         var = torch.sum(torch.exp(log_var), dim=1, keepdim=True)
         diffusion_reg = self.grad_norm(
-            mu) + self.grad_norm(mu.flip(dims=[2, 3, 4]))
+            mu) + self.grad_norm(mu.flip(dims=[2, 3, 4])).flip(dims=[2, 3, 4])
         translation_component = 1 / p * \
             torch.sum(mu, dim=[1, 2, 3, 4], keepdim=True)**2
         log_det_q = torch.sum(log_var, dim=1, keepdim=True)
