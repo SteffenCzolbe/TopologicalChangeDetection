@@ -32,34 +32,35 @@ def get_batch(dm1, dm2, device):
 
 
 def predict(model, I0, I1):
-    bound, transform, I01 = model.forward(I0, I1)
-    u, log_var = model.encoder(I0, I1)
-    recon_loss = model.elbo.recon_loss(I01, I1, reduction="none")
-    kl_div = model.elbo.kl_loss(u, log_var, reduction="none")
+    bound_0, bound_1, info, _ = model.bound(I0, I1, bidir=True)
 
-    return bound, I01, transform, recon_loss, kl_div
+    return info["morphed"], bound_0, bound_1
 
 
-def plot(file, I0, I01, I1, bound, recon_loss, kl_div):
+def plot(file, I0, I1, bound_0, bound_1):
     rows = 8
     # set-up fig
-    fig = viz.Fig(rows, 6, None, figsize=(5, 8))
+    fig = viz.Fig(rows, 4, None, figsize=(5, 8))
     # adjust subplot spacing
     fig.fig.subplots_adjust(hspace=0.05, wspace=0.05)
 
+    # define intensity range
+    vmin = 1
+    vmax = 20
+
     for row in range(rows):
         fig.plot_img(row, 0, I0[row], vmin=0, vmax=1,
-                     title="I0" if row == 0 else None)
-        fig.plot_img(row, 1, I01[row], vmin=0, vmax=1,
-                     title="I01" if row == 0 else None)
+                     title="I" if row == 0 else None)
+        fig.plot_img(row, 1, I0[row], vmin=0, vmax=1,
+                     title="I, annot." if row == 0 else None)
+        fig.plot_overlay(
+            row, 1, bound_0[row], vmin=vmin, vmax=vmax, cbar=True, alpha=0.45)
         fig.plot_img(row, 2, I1[row], vmin=0, vmax=1,
-                     title="I1" if row == 0 else None)
-        fig.plot_img(row, 3, bound[row], cmap='jet',
-                     title="p(I1 | I0)" if row == 0 else None)
-        fig.plot_img(row, 4, recon_loss[row], cmap='jet',
-                     title="$log p(J|I, \Phi)$" if row == 0 else None)
-        fig.plot_img(row, 5, kl_div[row], cmap='jet',
-                     title="$D_{KL}$" if row == 0 else None)
+                     title="J, annot." if row == 0 else None)
+        fig.plot_overlay(
+            row, 2, bound_1[row], vmin=vmin, vmax=vmax, cbar=True, alpha=0.45)
+        fig.plot_img(row, 3, I1[row], vmin=0, vmax=1,
+                     title="J" if row == 0 else None)
 
     fig.save(file + ".pdf", close=False)
     fig.save(file + ".png")
@@ -70,10 +71,9 @@ def main(hparams):
     model, dm1, dm2 = load_module_and_dataset(hparams)
     model.to(device)
     I0, I1 = get_batch(dm1, dm2, device)
-    bound, I01, transform, recon_loss, kl_div = predict(
+    I01, bound_0, bound_1 = predict(
         model, I0, I1)
-    plot(hparams.file, I0, I01, I1, bound,
-         recon_loss, kl_div)
+    plot(hparams.file, I0, I1, bound_0, bound_1)
 
 
 if __name__ == "__main__":
@@ -101,11 +101,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--file",
         type=str,
-        default="./plots/sample",
+        default="./plots/overlay",
         help="outputfile, without extension",
     )
-    parser.add_argument(
-        "--test", action="store_true", help="Run test-set metrics")
 
     hparams = parser.parse_args()
     main(hparams)

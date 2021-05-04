@@ -3,9 +3,25 @@ from torchreg.nn import Identity
 import torchreg.settings as settings
 import torch
 import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
 import io
 from PIL import Image
+
+
+def make_cmap_transparent(cmap, N=255):
+    """Makes a given cmap's lower end transparent
+    usage:
+    mycmap = make_cmap_transparent(plt.cm.Reds)
+    """
+    if type(cmap) == str:
+        # load cmap
+        cmap = matplotlib.cm.get_cmap(name=cmap, lut=N)
+    mycmap = cmap
+    mycmap._init()
+    # add transparity to first quarter of values
+    mycmap._lut[:N//4, -1] = np.linspace(0., 1., N//4)
+    return mycmap
 
 
 class Fig:
@@ -56,6 +72,13 @@ class Fig:
         """
         # convert to numpy
         img = transforms.image_to_numpy(image)
+
+        # clamp intensity range
+        if vmin:
+            img = np.maximum(img, vmin)
+        if vmax:
+            img = np.minimum(img, vmax)
+
         if settings.get_ndims() == 2:
             # plot greyscale image
             self.axs[row, col].imshow(
@@ -146,7 +169,7 @@ class Fig:
         img = torch.tensor(img).permute(-1, 0, 1)
         self.plot_overlay(row, col, img, alpha=alpha)
 
-    def plot_overlay(self, row, col, mask, cmap='jet', alpha=0.4, vmin=None, vmax=None):
+    def plot_overlay(self, row, col, mask, cmap='jet', alpha=0.4, vmin=None, vmax=None, cbar=False, semi_transparent_cmap=True):
         """
         imposes an overlay onto a plot
         Overlay needs to be of the form C x H x W
@@ -161,9 +184,20 @@ class Fig:
         """
         # convert to numpy
         mask = transforms.image_to_numpy(mask)
+
+        # clamp intensity range
+        if vmin:
+            mask = np.maximum(mask, vmin)
+        if vmax:
+            mask = np.minimum(mask, vmax)
+
+        # make colormap transparent
+        if semi_transparent_cmap:
+            cmap = make_cmap_transparent(cmap)
+
         if len(mask.shape) == 2:
             # plot greyscale image
-            self.axs[row, col].imshow(
+            im = self.axs[row, col].imshow(
                 mask,
                 cmap=cmap,
                 vmin=vmin,
@@ -173,7 +207,23 @@ class Fig:
             )
         elif len(mask.shape) in [3, 4]:
             # last channel is color channel
-            self.axs[row, col].imshow(mask, alpha=alpha, cmap=cmap)
+            im = self.axs[row, col].imshow(mask, alpha=alpha, cmap=cmap)
+
+        if cbar:
+
+            # colorbar ends (capped or open)
+            if vmin is None and vmax is None:
+                extend = 'neither'
+            elif vmin is not None and vmax is None:
+                extend = 'min'
+            elif vmin is None and vmax is not None:
+                extend = 'max'
+            elif vmin is not None and vmax is not None:
+                extend = 'both'
+
+            # add colorbar
+            self.fig.colorbar(im, ax=self.axs[row, col], extend=extend)
+
         return self
 
     def plot_transform_grid(

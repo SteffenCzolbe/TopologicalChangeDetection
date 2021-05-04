@@ -58,11 +58,11 @@ def load_model_from_hparams(hparams):
 def config_trainer_from_hparams(hparams):
     # save model with best validation loss
     checkpointing_callback = pl.callbacks.ModelCheckpoint(
-        monitor="val/loss", mode="max"
+        monitor="val/loss", mode="min"
     )
     # early stopping
     early_stop_callback = pl.callbacks.EarlyStopping(
-        monitor="val/loss", min_delta=0.00, patience=hparams.early_stop_patience, verbose=True, mode="max"
+        monitor="val/loss", min_delta=0.00, patience=hparams.early_stop_patience, verbose=True, mode="min"
     )
 
     # trainer

@@ -47,11 +47,11 @@ def plot(file, I, feats):
                      title="I0" if row == 0 else None)
         fig.plot_img(row, 1, feats[row, 0],
                      title="0" if row == 0 else None)
-        fig.plot_img(row, 2, feats[row, 16],
+        fig.plot_img(row, 2, feats[row, 1],
                      title="16" if row == 0 else None)
-        fig.plot_img(row, 3, feats[row, 439],
+        fig.plot_img(row, 3, feats[row, -2],
                      title="439" if row == 0 else None)
-        fig.plot_img(row, 4, feats[row, 440],
+        fig.plot_img(row, 4, feats[row, -1],
                      title="440" if row == 0 else None)
 
     fig.save(file + ".pdf", close=False)

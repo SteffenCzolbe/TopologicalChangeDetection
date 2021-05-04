@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchreg.nn as tnn
 import pytorch_lightning as pl
 import torchreg
 from .models.encoder import Encoder
@@ -54,6 +55,7 @@ class RegistrationModel(pl.LightningModule):
         )
         self.jacobian_determinant = torchreg.metrics.JacobianDeterminant(
             reduction='none')
+        self.transformer = tnn.SpatialTransformer()
 
     def load_semantic_augmentation_model(self, model_path):
         # load model
@@ -86,26 +88,57 @@ class RegistrationModel(pl.LightningModule):
             },
         }
 
-    def forward(self, I0: torch.Tensor, I1: torch.Tensor) -> torch.Tensor:
-        """[summary]
+    def bound(self, I0: torch.Tensor, I1: torch.Tensor, bidir=False):
+        I0_to_I1 = self.forward(I0, I1)
+
+        if not bidir:
+            return I0_to_I1["bound"], I0_to_I1
+        else:
+            I1_to_I0 = self.forward(I1, I0)
+
+            bound_0 = I1_to_I0["bound"] + \
+                self.transformer(I0_to_I1["bound"], I1_to_I0["transform"])
+            bound_1 = I0_to_I1["bound"] + \
+                self.transformer(I1_to_I0["bound"], I0_to_I1["transform"])
+            return bound_0, bound_1, I0_to_I1, I1_to_I0,
+
+    def forward(self, I0: torch.Tensor, I1: torch.Tensor) -> dict:
+        """calculates the upper bound on -log p(I1 | I0)
+
+        In addition, a dict with additional information is returned.
 
         Args:
-            I0 (torch.Tensor): moving image
-            I1 (torch.Tensor): fixed image
+            I0 (torch.Tensor): [description]
+            I1 (torch.Tensor): [description]
+            bidir (bool, optional): [description]. Defaults to False.
 
         Returns:
-            [torch.Tensor]: Pixel-wise upper bound on -log p(I1, I0)
+            Dictionary with various information
         """
+        # augment images, in case this model uses augmentation
         I0, I1 = self.semantic_augmentation(I0, I1)
-        mu, log_var = self.encoder(I0, I1)
-        transform = mu  # take mean during forward (no sample)
-        transform, transform_inv = self.decoder.get_transform(
-            mu, inverse=True)  # get transform and inverse
-        I01, _ = self.decoder.apply_transform(transform, I0)  # morph image
 
-        bound_1, _, _ = self.elbo.loss(
-            mu, log_var, I01, I1, reduction='none')  # calculate bound
-        return bound_1, transform, I01
+        # register the images
+        mu, log_var = self.encoder(I0, I1)
+
+        # sample the flow field
+        flow = mu
+
+        # apply the transformation
+        transform = self.decoder.get_transform(
+            flow, inverse=False)
+        I01, _ = self.decoder.apply_transform(
+            transform, I0)  # morph image
+
+        # calculate the bound
+        bound, recon_loss, kl_loss = self.elbo.loss(
+            mu, log_var, I01, I1, reduction='none')
+
+        return {"bound": bound,
+                "transform": transform,
+                "morphed": I01,
+                "recon_loss": recon_loss,
+                "kl_loss": kl_loss}
 
     def semantic_augmentation(self, I0, I1):
         if self.hparams.get('semantic_augmentation'):
