@@ -13,23 +13,30 @@ class ELBO(nn.Module):
         self.data_dims = data_dims
         self.use_analytical_prior = use_analytical_prior
         self.semantic_loss = semantic_loss
+        if self.semantic_loss:
+            self.load_semantic_loss_model(model_path=semantic_loss)
+        self.pi = torch.as_tensor(3.14159)
+
         self.prior_log_alpha = torch.nn.parameter.Parameter(
             torch.as_tensor(init_prior_log_alpha, dtype=torch.float32), requires_grad=trainable_prior)
         self.prior_log_beta = torch.nn.parameter.Parameter(
             torch.as_tensor(init_prior_log_beta, dtype=torch.float32), requires_grad=trainable_prior)
+        if self.data_dims[0] > 1:
+            init_recon_log_var = [init_recon_log_var] * self.data_dims[0]
         self.recon_log_var = torch.nn.parameter.Parameter(
             torch.as_tensor(init_recon_log_var, dtype=torch.float32), requires_grad=trainable_recon_var)
-        self.pi = torch.as_tensor(3.14159)
         self.grad_norm = torchreg.metrics.GradNorm(
             penalty="l2", reduction="none")
-        if self.semantic_loss:
-            self.load_semantic_loss_model(model_path=semantic_loss)
 
     def load_semantic_loss_model(self, model_path):
+        # load semantic loss model
         model_checkpoint = util.get_checkoint_path_from_logdir(model_path)
         self.semantic_loss_model = SemanticLossModel.load_from_checkpoint(
             model_checkpoint)
         util.freeze_model(self.semantic_loss_model)
+        # adjust image channels for augmented data
+        channel_cnt = sum(self.semantic_loss_model.net.enc_feat)
+        self.data_dims = (channel_cnt, *self.data_dims[1:])
 
     def loss(self, mu, log_var, I01, I1, reduction='mean'):
         recon_loss = self.recon_loss(I01, I1, reduction=reduction)
@@ -46,9 +53,21 @@ class ELBO(nn.Module):
             I1 = self.semantic_loss_model.augment_image(I1)
             I01 = self.semantic_loss_model.augment_image(I01)
 
-        var = torch.exp(self.recon_log_var)
-        loss = 0.5 * (torch.log(2 * self.pi) + self.recon_log_var) \
-            + 1/(2 * var) * torch.mean((I1 - I01)**2, dim=1, keepdim=True)
+        diff = (I1 - I01)**2
+
+        if self.use_analytical_prior:
+            var = 2 * diff.mean(dim=[0, 2, 3, 4], keepdim=True)
+        else:
+            var = torch.exp(self.recon_log_var).view(
+                1, self.data_dims[0], 1, 1, 1)
+
+        loss = 0.5 * (torch.log(2 * self.pi) + self.recon_log_var.mean()) \
+            + torch.mean(1/(2 * var) * diff, dim=1, keepdim=True)
+
+        if self.use_analytical_prior:
+            # set parameter for logging
+            self.recon_log_var = torch.nn.Parameter(
+                torch.log(var).squeeze(), requires_grad=False)
 
         if reduction == 'none':
             return loss

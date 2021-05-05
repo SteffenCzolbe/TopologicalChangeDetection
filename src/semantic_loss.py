@@ -91,11 +91,21 @@ class SemanticLossModel(pl.LightningModule):
         feats = self.extract_features(x)
 
         # expand deeper layers to same dimensionality as input
-        feats = [F.interpolate(feat, size=(H, W, D), mode='trilinear')
-                 for feat in feats]
+        if D == 1:
+            feats = [F.interpolate(feat.squeeze(-1), size=(H, W), mode='bicubic').unsqueeze(-1)
+                     for feat in feats]
+        else:
+            feats = [F.interpolate(feat, size=(H, W, D), mode='trilinear')
+                     for feat in feats]  # TODO: cubic interpolation for 2d data
 
         # stack along channel dimension
-        return torch.cat(feats, dim=1)
+        feats = torch.cat(feats, dim=1)
+
+        # normalize by channel
+        channel_norms = (feats**2).mean(dim=[2, 3, 4], keepdim=True) ** 0.5
+        feats = feats / channel_norms
+
+        return feats
 
     def step(self, x: torch.Tensor, y_true: torch.Tensor) -> Dict[str, float]:
         # predict
