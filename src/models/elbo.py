@@ -7,11 +7,12 @@ import src.util as util
 
 
 class ELBO(nn.Module):
-    def __init__(self, data_dims, use_analytical_prior, semantic_loss, init_prior_log_alpha, init_prior_log_beta, trainable_prior, init_recon_log_var, trainable_recon_var):
+    def __init__(self, data_dims, use_analytical_prior, use_analytical_recon, semantic_loss, init_prior_log_alpha, init_prior_log_beta, trainable_prior, init_recon_log_var, trainable_recon_var):
         super().__init__()
         self.ndims = torchreg.settings.get_ndims()
         self.data_dims = data_dims
         self.use_analytical_prior = use_analytical_prior
+        self.use_analytical_recon = use_analytical_recon
         self.semantic_loss = semantic_loss
         if self.semantic_loss:
             self.load_semantic_loss_model(model_path=semantic_loss)
@@ -27,6 +28,7 @@ class ELBO(nn.Module):
             torch.as_tensor(init_recon_log_var, dtype=torch.float32), requires_grad=trainable_recon_var)
         self.grad_norm = torchreg.metrics.GradNorm(
             penalty="l2", reduction="none")
+        self.transformer = torchreg.nn.SpatialTransformer()
 
     def load_semantic_loss_model(self, model_path):
         # load semantic loss model
@@ -38,36 +40,45 @@ class ELBO(nn.Module):
         channel_cnt = sum(self.semantic_loss_model.net.enc_feat)
         self.data_dims = (channel_cnt, *self.data_dims[1:])
 
-    def loss(self, mu, log_var, I01, I1, reduction='mean'):
-        recon_loss = self.recon_loss(I01, I1, reduction=reduction)
+    def loss(self, mu, log_var, transform, I0, I1, reduction='mean'):
+        recon_loss = self.recon_loss(I0, I1, transform, reduction=reduction)
         kl_loss = self.kl_loss(
             mu, log_var, reduction=reduction)
         loss = recon_loss + kl_loss
         return loss, recon_loss, kl_loss
 
-    def recon_loss(self, I01, I1, reduction='mean'):
+    def recon_loss(self, I0, I1, transform, reduction='mean'):
         # we implement the term pixel-whise, and mean over pixels if specified by the reduction
         # the scalar term is devided by factor p (canceled out), as it will be expanded (broadcasted) to size p during summation of the loss terms
+        def expect(t):
+            # sum spatial dimensions
+            t = t.sum(dim=[2, 3, 4], keepdim=True)
+            # mean (expectation) over the batch and channels
+            return t.mean(dim=[0, 1], keepdim=True)
 
         if self.semantic_loss:
+            I0 = self.semantic_loss_model.augment_image(I0)
             I1 = self.semantic_loss_model.augment_image(I1)
-            I01 = self.semantic_loss_model.augment_image(I01)
+
+        I01 = self.transformer(I0, transform)
 
         diff = (I1 - I01)**2
 
-        if self.use_analytical_prior:
-            var = 2 * diff.mean(dim=[0, 2, 3, 4], keepdim=True)
+        if self.use_analytical_recon:
+            var = 1 / expect(diff)
+            log_var = torch.log(var)
         else:
             var = torch.exp(self.recon_log_var).view(
                 1, self.data_dims[0], 1, 1, 1)
+            log_var = self.recon_log_var
 
-        loss = 0.5 * (torch.log(2 * self.pi) + self.recon_log_var.mean()) \
+        loss = 0.5 * (torch.log(2 * self.pi) + log_var.mean()) \
             + torch.mean(1/(2 * var) * diff, dim=1, keepdim=True)
 
-        if self.use_analytical_prior:
+        if self.use_analytical_recon:
             # set parameter for logging
             self.recon_log_var = torch.nn.Parameter(
-                torch.log(var).squeeze(), requires_grad=False)
+                log_var.squeeze(), requires_grad=False)
 
         if reduction == 'none':
             return loss

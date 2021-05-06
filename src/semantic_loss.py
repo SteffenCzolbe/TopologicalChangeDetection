@@ -102,7 +102,7 @@ class SemanticLossModel(pl.LightningModule):
         feats = torch.cat(feats, dim=1)
 
         # normalize by channel
-        channel_norms = (feats**2).mean(dim=[2, 3, 4], keepdim=True) ** 0.5
+        channel_norms = (feats**2).sum(dim=[2, 3, 4], keepdim=True) ** 0.5
         feats = feats / channel_norms
 
         return feats

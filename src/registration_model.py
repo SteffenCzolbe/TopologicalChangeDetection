@@ -42,6 +42,8 @@ class RegistrationModel(pl.LightningModule):
             integration_steps=self.hparams.get('integration_steps'))
         self.elbo = ELBO(data_dims=self.hparams.data_dims,
                          use_analytical_prior=self.hparams.analytical_prior,
+                         use_analytical_recon=self.hparams.get(
+                             'analytical_recon'),
                          semantic_loss=self.hparams.semantic_loss,
                          init_prior_log_alpha=self.hparams.prior_weights_init[0],
                          init_prior_log_beta=self.hparams.prior_weights_init[1],
@@ -132,7 +134,7 @@ class RegistrationModel(pl.LightningModule):
 
         # calculate the bound
         bound, recon_loss, kl_loss = self.elbo.loss(
-            mu, log_var, I01, I1, reduction='none')
+            mu, log_var, transform, I0, I1, reduction='none')
 
         return {"bound": bound,
                 "transform": transform,
@@ -175,7 +177,7 @@ class RegistrationModel(pl.LightningModule):
         I01, S01 = self.decoder(transform, I0, seg=S0)
 
         loss, recon_loss, kl_loss = self.elbo.loss(
-            mu, log_var, I01, I1, reduction='mean')
+            mu, log_var, transform, I0, I1, reduction='mean')
 
         with torch.no_grad():
             jacdet = self.jacobian_determinant(mu)
@@ -241,6 +243,9 @@ class RegistrationModel(pl.LightningModule):
         )
         parser.add_argument(
             "--analytical_prior", action="store_true", help="Set to use analytical solution for prior parameters alpha, beta"
+        )
+        parser.add_argument(
+            "--analytical_recon", action="store_true", help="Set to use analytical solution for recon parameter sigma"
         )
         parser.add_argument(
             "--fixed_model_var", action="store_true", help="Fix the variance of the transformation")

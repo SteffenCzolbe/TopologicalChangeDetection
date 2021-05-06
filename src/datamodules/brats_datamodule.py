@@ -114,8 +114,11 @@ class BraTSDataset(Dataset):
         # load image paths from csv
         df = pd.read_csv(os.path.join(
             self.data_dir, "metadata.csv"), dtype=str)
+
+        # filter by train set, successful processing and tumor size
         subjects = df.loc[(df['SPLIT'] == "train") & (
-            df['AUTO_PROCESSING'] == "OK")]['subject_id'].values
+            df['AUTO_PROCESSING'] == "OK") & (
+            df['center_slice_tumor_size'].astype(float) > 500)]['subject_id'].values
 
         # gather list of files
         self.image_nii_files = list(
