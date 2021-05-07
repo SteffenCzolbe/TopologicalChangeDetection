@@ -37,7 +37,7 @@ def predict(model, I0, I1):
     return info["morphed"], bound_0, bound_1
 
 
-def plot(file, I0, I1, bound_0, bound_1):
+def plot(args, I0, I1, bound_0, bound_1):
     rows = 8
     # set-up fig
     fig = viz.Fig(rows, 4, None, figsize=(5, 8))
@@ -45,8 +45,8 @@ def plot(file, I0, I1, bound_0, bound_1):
     fig.fig.subplots_adjust(hspace=0.05, wspace=0.05)
 
     # define intensity range
-    vmin = 1
-    vmax = 20
+    vmin = args.range[0]
+    vmax = args.range[1]
 
     for row in range(rows):
         fig.plot_img(row, 0, I0[row], vmin=0, vmax=1,
@@ -62,18 +62,18 @@ def plot(file, I0, I1, bound_0, bound_1):
         fig.plot_img(row, 3, I1[row], vmin=0, vmax=1,
                      title="J" if row == 0 else None)
 
-    fig.save(file + ".pdf", close=False)
-    fig.save(file + ".png")
+    fig.save(args.file + ".pdf", close=False)
+    fig.save(args.file + ".png")
 
 
-def main(hparams):
+def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    model, dm1, dm2 = load_module_and_dataset(hparams)
+    model, dm1, dm2 = load_module_and_dataset(args)
     model.to(device)
     I0, I1 = get_batch(dm1, dm2, device)
     I01, bound_0, bound_1 = predict(
         model, I0, I1)
-    plot(hparams.file, I0, I1, bound_0, bound_1)
+    plot(args, I0, I1, bound_0, bound_1)
 
 
 if __name__ == "__main__":
@@ -96,6 +96,13 @@ if __name__ == "__main__":
         "--ds2",
         type=str,
         default="brats2d",
+        help="Dataset 2",
+    )
+    parser.add_argument(
+        "--range",
+        type=float,
+        nargs="+",
+        default=[1, 20],
         help="Dataset 2",
     )
     parser.add_argument(

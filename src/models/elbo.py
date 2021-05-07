@@ -50,6 +50,8 @@ class ELBO(nn.Module):
     def recon_loss(self, I0, I1, transform, reduction='mean'):
         # we implement the term pixel-whise, and mean over pixels if specified by the reduction
         # the scalar term is devided by factor p (canceled out), as it will be expanded (broadcasted) to size p during summation of the loss terms
+        p = torch.prod(torch.tensor(self.data_dims[1:]))  # p pixels
+
         def expect(t):
             # sum spatial dimensions
             t = t.sum(dim=[2, 3, 4], keepdim=True)
@@ -65,7 +67,7 @@ class ELBO(nn.Module):
         diff = (I1 - I01)**2
 
         if self.use_analytical_recon:
-            var = 1 / expect(diff)
+            var = 1 / (p * expect(diff))
             log_var = torch.log(var)
         else:
             var = torch.exp(self.recon_log_var).view(
@@ -73,7 +75,7 @@ class ELBO(nn.Module):
             log_var = self.recon_log_var
 
         loss = 0.5 * (torch.log(2 * self.pi) + log_var.mean()) \
-            + torch.mean(1/(2 * var) * diff, dim=1, keepdim=True)
+            + 0.5 * torch.mean(1/var * diff, dim=1, keepdim=True)
 
         if self.use_analytical_recon:
             # set parameter for logging
