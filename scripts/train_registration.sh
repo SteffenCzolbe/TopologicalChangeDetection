@@ -12,20 +12,11 @@ else
     WRAPPER_FUNC=
 fi
 
-# trainable alpha, beta
-$WRAPPER_FUNC python -m src.train_registration --dataset brain2d --channels 64 128 256 --trainable_prior --prior_weights_init -4 7 --recon_weight_init -5 --trainable_recon --gpus -1 --accelerator dp --max_epochs 200 --lr_decline_patience 50 --early_stop_patience 80 --batch_size 32 --bnorm --dropout --notest --fast_dev_run $FAST_DEV_RUN
+# trainable recon, analytical prior
+$WRAPPER_FUNC python3 -m src.train_registration --dataset brain2d --channels 64 128 256 --analytical_prior --trainable_recon --recon_weight_init -5 --gpus -1 --accelerator dp --max_epochs 300 --lr_decline_patience 50 --early_stop_patience 80 --batch_size 32 --bnorm --dropout --notest --fast_dev_run $FAST_DEV_RUN
 
-# analytical solution for alpha, beta
-$WRAPPER_FUNC python -m src.train_registration --dataset brain2d --channels 64 128 256 --analytical_prior --recon_weight_init -5 --trainable_recon --gpus -1 --accelerator dp --max_epochs 200 --lr_decline_patience 50 --early_stop_patience 80 --batch_size 32 --bnorm --dropout --notest --fast_dev_run $FAST_DEV_RUN
+# semantic loss, trainable recon, analytical prior
+$WRAPPER_FUNC python3 -m src.train_registration --dataset brain2d --channels 64 128 256 --analytical_prior --trainable_recon --semantic_loss trained_models/semantic_loss --recon_weight_init -12.5 --gpus -1 --accelerator dp --max_epochs 300 --lr_decline_patience 50 --early_stop_patience 80 --batch_size 32 --bnorm --dropout --notest --fast_dev_run $FAST_DEV_RUN
 
 # fixed prior parameters alpha, beta
 $WRAPPER_FUNC python -m src.train_registration --dataset brain2d --channels 64 128 256 --prior_weights_init 0 0 --recon_weight_init -5 --trainable_recon --gpus -1 --accelerator dp --max_epochs 200 --lr_decline_patience 50 --early_stop_patience 80 --batch_size 32 --bnorm --dropout --notest --fast_dev_run $FAST_DEV_RUN
-#$WRAPPER_FUNC python -m src.train_registration --dataset brain2d --channels 64 128 256 --prior_weights_init 2 2 --recon_weight_init -5 --trainable_recon --gpus -1 --accelerator dp --max_epochs 200 --lr_decline_patience 50 --early_stop_patience 80 --batch_size 32 --bnorm --dropout --notest --fast_dev_run $FAST_DEV_RUN
-#$WRAPPER_FUNC python -m src.train_registration --dataset brain2d --channels 64 128 256 --prior_weights_init -2 -2 --recon_weight_init -5 --trainable_recon --gpus -1 --accelerator dp --max_epochs 200 --lr_decline_patience 50 --early_stop_patience 80 --batch_size 32 --bnorm --dropout --notest --fast_dev_run $FAST_DEV_RUN
-
-# fixed model variance, trainable alpha, beta
-$WRAPPER_FUNC python -m src.train_registration --dataset brain2d --channels 64 128 256 --fixed_model_var --trainable_prior --prior_weights_init 4 4 --recon_weight_init -5 --trainable_recon --gpus -1 --accelerator dp --max_epochs 600 --lr_decline_patience 500 --early_stop_patience 800 --batch_size 32 --bnorm --dropout --notest --fast_dev_run $FAST_DEV_RUN
-
-# analytical solution for alpha, beta, semantic loss
-$WRAPPER_FUNC python -m src.train_registration --dataset brain2d --channels 64 128 256 --analytical_prior --semantic_loss trained_models/semantic_loss --recon_weight_init -5 --trainable_recon --gpus -1 --accelerator dp --max_epochs 200 --lr_decline_patience 50 --early_stop_patience 80 --batch_size 32 --bnorm --dropout --notest --fast_dev_run $FAST_DEV_RUN
-$WRAPPER_FUNC python -m src.train_registration --dataset brain2d --channels 64 128 256 --analytical_prior --semantic_augmentation lightning_logs/version_2 --recon_weight_init -5 --trainable_recon --gpus -1 --accelerator dp --max_epochs 200 --lr_decline_patience 50 --early_stop_patience 80 --batch_size 32 --bnorm --dropout --notest --fast_dev_run $FAST_DEV_RUN

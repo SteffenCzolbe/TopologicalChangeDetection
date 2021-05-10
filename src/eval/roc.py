@@ -117,8 +117,8 @@ def plot_roc_curve(true_labels, predicted_probs, model_name):
 def main(args):
     torchreg.settings.set_ndims(2)
     plot_setup(title="ROC Cruves of annotated Tumors")
-    models = [("MSE", "./lightning_logs/analytical_prior"),
-              ("Semantic Loss", "./lightning_logs/semantic_loss")]
+    models = [("MSE", "./lightning_logs/mse_analytical_prior_trainable_recon"),
+              ("Semantic Loss", "./lightning_logs/semantic_loss_analytical_prior_trainable_recon")]
     for model_name, weights in models:
         model = load_model(weights)
         class_labels, bounds = test_model(model)
