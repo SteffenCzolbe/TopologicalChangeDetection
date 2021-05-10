@@ -78,7 +78,12 @@ def load_datamodule_for_model(model, batch_size=None):
 def get_checkoint_path_from_logdir(model_logdir):
     epoch_to_checkpoint = {}
     regex = r".*epoch=([0-9]+)-step=[0-9]+.ckpt"
-    for fname in glob.glob(os.path.join(model_logdir, "checkpoints", "*")):
+    checkpoint_files = glob.glob(
+        os.path.join(model_logdir, "checkpoints", "*"))
+    if len(checkpoint_files) == 0:
+        raise Exception(
+            f'Could not find any model checkpoints in {model_logdir}.')
+    for fname in checkpoint_files:
         if re.match(regex, fname):
             epoch = re.search(regex, fname).group(1)
             epoch_to_checkpoint[int(epoch)] = fname
