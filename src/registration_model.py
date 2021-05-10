@@ -26,9 +26,6 @@ class RegistrationModel(pl.LightningModule):
 
         # set net
         self.ndims = torchreg.settings.get_ndims()
-        if self.hparams.get('semantic_augmentation'):
-            self.load_semantic_augmentation_model(
-                model_path=self.hparams.semantic_augmentation)
         self.encoder = Encoder(
             in_channels=self.hparams.data_dims[0],
             enc_feat=self.hparams.channels,
@@ -58,18 +55,6 @@ class RegistrationModel(pl.LightningModule):
         self.jacobian_determinant = torchreg.metrics.JacobianDeterminant(
             reduction='none')
         self.transformer = tnn.SpatialTransformer()
-
-    def load_semantic_augmentation_model(self, model_path):
-        # load model
-        model_checkpoint = util.get_checkoint_path_from_logdir(model_path)
-        self.semantic_augmentation_model = SemanticLossModel.load_from_checkpoint(
-            model_checkpoint)
-        util.freeze_model(self.semantic_augmentation_model)
-        # adjust data size for augmented data
-        channel_cnt = sum(self.semantic_augmentation_model.net.enc_feat)
-        data_dims = self.hparams.data_dims
-        data_dims = (channel_cnt, *data_dims[1:])
-        self.hparams.data_dims = data_dims
 
     def configure_optimizers(self):
         opt = torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
@@ -117,8 +102,6 @@ class RegistrationModel(pl.LightningModule):
         Returns:
             Dictionary with various information
         """
-        # augment images, in case this model uses augmentation
-        I0, I1 = self.semantic_augmentation(I0, I1)
 
         # register the images
         mu, log_var = self.encoder(I0, I1)
@@ -142,13 +125,6 @@ class RegistrationModel(pl.LightningModule):
                 "recon_loss": recon_loss,
                 "kl_loss": kl_loss}
 
-    def semantic_augmentation(self, I0, I1):
-        if self.hparams.get('semantic_augmentation'):
-            with torch.no_grad():
-                I0 = self.semantic_augmentation_model.augment_image(I0)
-                I1 = self.semantic_augmentation_model.augment_image(I1)
-        return I0, I1
-
     def sample_transformation(self, mu, log_var):
         std = torch.exp(log_var / 2)
         # conditional posterior distribution q(z | x)
@@ -171,7 +147,6 @@ class RegistrationModel(pl.LightningModule):
         Returns:
             Dict[str, float]: log values
         """
-        I0, I1 = self.semantic_augmentation(I0, I1)
         mu, log_var = self.encoder(I0, I1)
         transform = self.sample_transformation(mu, log_var)
         I01, S01 = self.decoder(transform, I0, seg=S0)
@@ -267,9 +242,6 @@ class RegistrationModel(pl.LightningModule):
         )
         parser.add_argument(
             "--semantic_loss", type=str, help="Path to semantic model. Set to use semantic reconstruction loss."
-        )
-        parser.add_argument(
-            "--semantic_augmentation", type=str, help="Path to semantic model. Set to use semantic reconstruction loss."
         )
         parser.add_argument(
             "--bnorm", action="store_true", help="set to use batchnormalization."
