@@ -51,6 +51,7 @@ class ELBO(nn.Module):
         # we implement the term pixel-whise, and mean over pixels if specified by the reduction
         # the scalar term is devided by factor p (canceled out), as it will be expanded (broadcasted) to size p during summation of the loss terms
         p = torch.prod(torch.tensor(self.data_dims[1:]))  # p pixels
+        c = self.data_dims[0]  # c channels
 
         def expect(t):
             # sum spatial dimensions
@@ -74,8 +75,8 @@ class ELBO(nn.Module):
                 1, self.data_dims[0], 1, 1, 1)
             log_var = self.recon_log_var
 
-        loss = 0.5 * (torch.log(2 * self.pi) + log_var.mean()) \
-            + 0.5 * torch.mean(1/var * diff, dim=1, keepdim=True)
+        loss = 0.5 * (c * torch.log(2 * self.pi) + log_var.sum()) \
+            + 0.5 * torch.sum(1/var * diff, dim=1, keepdim=True)
 
         if self.use_analytical_recon:
             # set parameter for logging
@@ -103,11 +104,12 @@ class ELBO(nn.Module):
 
         # log_det_p and translation terms are devided by factor p,
         # as the scalar will be expanded (broadcasted) to size p during summation of the loss terms
+        # we mean aross the transformation channels for all terms
         var = torch.sum(torch.exp(log_var), dim=1, keepdim=True)
         diffusion_reg = self.grad_norm(
             mu) + self.grad_norm(mu.flip(dims=[2, 3, 4])).flip(dims=[2, 3, 4])
         translation_component = 1 / p * \
-            torch.sum(mu, dim=[1, 2, 3, 4], keepdim=True)**2
+            torch.sum(mu, dim=[1, 2, 3, 4], keepdim=True)**2 / self.ndims
         log_det_q = torch.sum(log_var, dim=1, keepdim=True)
 
         if self.use_analytical_prior:
@@ -128,13 +130,14 @@ class ELBO(nn.Module):
 
         if self.use_analytical_prior:
             # analytical solution for alpha, beta
-            loss = 0.5 * (log_det_p
-                          - log_det_q
-                          + (n-1) * (degree * var + diffusion_reg)
-                          / expect(degree * var + diffusion_reg)
-                          + (var + translation_component)
-                          / expect(var + translation_component)
-                          )
+            loss = 0.5 * self.ndims * \
+                (log_det_p
+                 - log_det_q
+                 + (n-1) * (degree * var + diffusion_reg)
+                 / expect(degree * var + diffusion_reg)
+                 + (var + translation_component)
+                 / expect(var + translation_component)
+                 )
             # set alpha, beta for logging
             self.prior_log_alpha = torch.nn.Parameter(
                 torch.log(torch.as_tensor(alpha)), requires_grad=False)
@@ -142,12 +145,13 @@ class ELBO(nn.Module):
                 torch.log(torch.as_tensor(beta)), requires_grad=False)
         else:
             # parameterized by alpha, beta
-            loss = 0.5 * (log_det_p
-                          - log_det_q
-                          + (alpha * degree + beta / (n**2)) * var
-                          + alpha * diffusion_reg
-                          + beta / (n**2) * translation_component
-                          )
+            loss = 0.5 * self.ndims * \
+                (log_det_p
+                 - log_det_q
+                 + (alpha * degree + beta / (n**2)) * var
+                 + alpha * diffusion_reg
+                 + beta / (n**2) * translation_component
+                 )
 
         if reduction == 'none':
             return loss
