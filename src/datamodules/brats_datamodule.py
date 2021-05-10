@@ -40,12 +40,12 @@ class BraTSDataModule(pl.LightningDataModule):
         if not os.path.isdir(os.path.join(self.data_dir, "preprocessed_data")):
             raise Exception('BraTS data not found.')
 
-    def test_dataloader(self):
+    def test_dataloader(self, shuffle=False):
         dataset = BraTSDataset(
             self.data_dir, "train", pairs=self.pairs, atlasreg=self.atlasreg,
             loadseg=self.load_val_seg, volumetric=self.volumetric,
         )
-        return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers)
+        return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=shuffle)
 
 
 def enumerate_labels(tensor):

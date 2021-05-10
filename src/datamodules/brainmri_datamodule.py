@@ -40,29 +40,29 @@ class BrainMRIDataModule(pl.LightningDataModule):
         if not os.path.isdir(os.path.join(self.data_dir, "data")):
             raise Exception('BrainMRI data not found.')
 
-    def train_dataloader(self):
+    def train_dataloader(self, shuffle=False):
         dataset = BrainMRIDataset(
             self.data_dir, "train", pairs=self.pairs, atlasreg=self.atlasreg,
             loadseg=self.load_train_seg, volumetric=self.volumetric,
             limitsize=4000, deterministic=False,
         )
-        return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers)
+        return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=shuffle)
 
-    def val_dataloader(self):
+    def val_dataloader(self, shuffle=False):
         dataset = BrainMRIDataset(
             self.data_dir, "val", pairs=self.pairs, atlasreg=self.atlasreg,
             loadseg=self.load_val_seg, volumetric=self.volumetric,
             limitsize=250, deterministic=True,
         )
-        return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers)
+        return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=shuffle)
 
-    def test_dataloader(self):
+    def test_dataloader(self, shuffle=False):
         dataset = BrainMRIDataset(
             self.data_dir, "test", pairs=self.pairs, atlasreg=self.atlasreg,
             loadseg=self.load_val_seg, volumetric=self.volumetric,
             limitsize=250, deterministic=True,
         )
-        return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers)
+        return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=shuffle)
 
 
 def take_slice_from_tensor(tensor):
