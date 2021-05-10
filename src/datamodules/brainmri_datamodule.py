@@ -44,7 +44,7 @@ class BrainMRIDataModule(pl.LightningDataModule):
         dataset = BrainMRIDataset(
             self.data_dir, "train", pairs=self.pairs, atlasreg=self.atlasreg,
             loadseg=self.load_train_seg, volumetric=self.volumetric,
-            limitsize=4000, deterministic=False, augmentation=None,
+            limitsize=4000, deterministic=False,
         )
         return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers)
 
@@ -52,7 +52,7 @@ class BrainMRIDataModule(pl.LightningDataModule):
         dataset = BrainMRIDataset(
             self.data_dir, "val", pairs=self.pairs, atlasreg=self.atlasreg,
             loadseg=self.load_val_seg, volumetric=self.volumetric,
-            limitsize=250, deterministic=True, augmentation=None,
+            limitsize=250, deterministic=True,
         )
         return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers)
 
@@ -60,7 +60,7 @@ class BrainMRIDataModule(pl.LightningDataModule):
         dataset = BrainMRIDataset(
             self.data_dir, "test", pairs=self.pairs, atlasreg=self.atlasreg,
             loadseg=self.load_val_seg, volumetric=self.volumetric,
-            limitsize=250, deterministic=True, augmentation=None,
+            limitsize=250, deterministic=True,
         )
         return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers)
 
@@ -71,7 +71,7 @@ def take_slice_from_tensor(tensor):
 
 
 class BrainMRIDataset(Dataset):
-    def __init__(self, data_dir, datasplit, pairs, atlasreg, loadseg, volumetric=True, limitsize=None, deterministic=True, augmentation=None):
+    def __init__(self, data_dir, datasplit, pairs, atlasreg, loadseg, volumetric=True, limitsize=None, deterministic=True):
         """Brain MRI dataset
 
         Args:
@@ -83,17 +83,16 @@ class BrainMRIDataset(Dataset):
             volumetric (bool, optional): Set for 3d images. Defaults to True.
             limitsize ([type]): artifical limit on size of dataset, only applicable if atlasreg=False
             deterministic (bool, optional): Set to obtain deterministic behaviour. Only applicable if atlasreg=False. Defaults to True.
-            augmentation ([type], optional): Augmentation Transforms. Defaults to None.
         """
         self.data_dir = data_dir
+        self.datasplit = datasplit
         self.pairs = pairs
         self.atlasreg = atlasreg
         self.loadseg = loadseg
         self.limitsize = limitsize
         self.deterministic = deterministic
-        self.augmentation = augmentation
 
-        # preprocessing, performed before augmentation
+        # preprocessing, performed before
         transforms = []
         to_2d_transform = tio.Lambda(take_slice_from_tensor,
                                      types_to_apply=[tio.INTENSITY, tio.LABEL])
@@ -119,6 +118,7 @@ class BrainMRIDataset(Dataset):
             self.data_dir, "metadata.csv"), dtype=str)
         df.set_index("subject_id", inplace=True)
         subjects = list(df[df["SPLIT"] == datasplit].index)
+        self.subjects = subjects
 
         # gather list of files
         self.image_nii_files = list(
@@ -135,64 +135,77 @@ class BrainMRIDataset(Dataset):
 
         # load atlas
         if self.atlasreg:
-            self.atlas = tio.ScalarImage(os.path.join(
-                self.data_dir, "atlas", "brain_aligned.nii.gz"))
-            self.atlas_seg = tio.LabelMap(os.path.join(
-                self.data_dir, "atlas", "seg_coalesced_aligned.nii.gz"))
+            self.atlas = self.preprocess(tio.ScalarImage(os.path.join(
+                self.data_dir, "atlas", "brain_aligned.nii.gz")))
+            self.atlas_seg = self.preprocess(tio.LabelMap(os.path.join(
+                self.data_dir, "atlas", "seg_coalesced_aligned.nii.gz")))
 
     def __len__(self):
         if self.atlasreg or not self.pairs:
-            return len(self.image_nii_files)
+            return len(self.subjects)
         else:
-            return self.limitsize if self.limitsize else len(self.image_nii_files)
+            return self.limitsize if self.limitsize else len(self.subjects)
 
-    def get_subject_indices_from_index(self, index):
+    def get_subject_ids_from_index(self, index):
         if self.atlasreg or not self.pairs:
             # register one image to atlas
-            return index, None
+            return self.subjects[index], None
         if not self.deterministic:
             # pick two images at random
-            N = len(self.image_nii_files)
+            N = len(self.subjects)
             idx0 = random.randint(0, N-1)
             idx1 = random.randint(0, N-1)
-            return idx0, idx1
+            return self.subjects[idx0], self.subjects[idx1]
         else:
             # pick two pseudo-random images
-            N = len(self.image_nii_files)
+            N = len(self.subjects)
             index *= (N ** 2) // ((self.limitsize or N)+42)
             idx0 = index // N
             idx1 = index % N
-            return idx0, idx1
+            return self.subjects[idx0], self.subjects[idx1]
+
+    def load_subject(self, subject_id):
+        intensity_file = os.path.join(
+            self.data_dir, "data", subject_id, "brain_aligned.nii.gz")
+        label_file = os.path.join(
+            self.data_dir, "data", subject_id, "seg_coalesced_aligned.nii.gz")
+
+        # load and preprocess image
+        I = tio.ScalarImage(intensity_file)
+        I = self.preprocess(I)
+
+        if self.loadseg:
+            S = tio.LabelMap(label_file)
+            S = self.preprocess(S)
+        else:
+            S = None
+
+        return I, S
 
     def __getitem__(self, index):
-        idx0, idx1 = self.get_subject_indices_from_index(index)
+        subject0, subject1 = self.get_subject_ids_from_index(index)
         # load images
-        I0 = tio.ScalarImage(self.image_nii_files[idx0])
-        S0 = tio.LabelMap(self.image_nii_label_files[idx0])
+        I0, S0 = self.load_subject(subject0)
 
         if self.pairs:
             if self.atlasreg:
                 I1 = self.atlas
                 S1 = self.atlas_seg
             else:
-                I1 = tio.ScalarImage(self.image_nii_files[idx1])
-                S1 = tio.LabelMap(self.image_nii_label_files[idx1])
+                I1, S1 = self.load_subject(subject1)
 
             # build subject
             if self.loadseg:
-                subject = tio.Subject(I0=I0, S0=S0, I1=I1, S1=S1)
+                subject = tio.Subject(
+                    I0=I0, S0=S0, I1=I1, S1=S1, subject_id0=subject0, subject_id1=subject1)
             else:
-                subject = tio.Subject(I0=I0, I1=I1)
+                subject = tio.Subject(
+                    I0=I0, I1=I1, subject_id0=subject0, subject_id1=subject1)
         else:
             if self.loadseg:
-                subject = tio.Subject(I=I0, S=S0)
+                subject = tio.Subject(I=I0, S=S0, subject_id=subject0)
             else:
-                subject = tio.Subject(I=I0)
-
-        # apply preprocessing and augmentation
-        subject = self.preprocess(subject)
-        if self.augmentation:
-            subject = self.augmentation(subject)
+                subject = tio.Subject(I=I0, subject_id=subject0)
 
         return subject
 
