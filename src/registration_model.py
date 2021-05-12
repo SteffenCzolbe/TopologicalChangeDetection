@@ -31,22 +31,15 @@ class RegistrationModel(pl.LightningModule):
             enc_feat=self.hparams.channels,
             dec_feat=self.hparams.channels[::-1],
             conv_layers_per_stage=self.hparams.conv_layers_per_stage,
-            fixed_model_var=-10. if self.hparams.fixed_model_var else None,
+            fixed_model_var=None,
             bnorm=self.hparams.bnorm,
             dropout=self.hparams.dropout,
         )
         self.decoder = FixedDecoder(
-            integration_steps=self.hparams.get('integration_steps'))
+            integration_steps=self.hparams.integration_steps)
         self.elbo = ELBO(data_dims=self.hparams.data_dims,
-                         use_analytical_prior=self.hparams.analytical_prior,
-                         use_analytical_recon=self.hparams.get(
-                             'analytical_recon'),
                          semantic_loss=self.hparams.semantic_loss,
-                         init_prior_log_alpha=self.hparams.prior_weights_init[0],
-                         init_prior_log_beta=self.hparams.prior_weights_init[1],
-                         trainable_prior=self.hparams.trainable_prior,
-                         init_recon_log_var=self.hparams.recon_weight_init,
-                         trainable_recon_var=self.hparams.trainable_recon,)
+                         init_recon_log_var=self.hparams.recon_weight_init)
 
         # various components for loss caluclation and evaluation
         self.dice_overlap = torchreg.metrics.DiceOverlap(
@@ -162,8 +155,8 @@ class RegistrationModel(pl.LightningModule):
             "recon_loss": recon_loss,
             "kl_loss": kl_loss,
             "mean_latent_log_var": log_var.mean(),
-            "prior_log_alpha": self.elbo.prior_log_alpha.mean(),
-            "prior_log_beta": self.elbo.prior_log_beta.mean(),
+            "prior_log_alpha": self.elbo.log_alpha.mean(),
+            "prior_log_beta": self.elbo.log_beta.mean(),
             "recon_log_var": self.elbo.recon_log_var.mean(),
             "transformation_smoothness": -jacdet.var(),
             "transformation_folding": (jacdet <= 0).float().mean(),
@@ -215,27 +208,6 @@ class RegistrationModel(pl.LightningModule):
         )
         parser.add_argument(
             "--integration_steps", type=int, default=0, help="Itegration steps on the flow field. Default: 0 (disabled)"
-        )
-        parser.add_argument(
-            "--analytical_prior", action="store_true", help="Set to use analytical solution for prior parameters alpha, beta"
-        )
-        parser.add_argument(
-            "--analytical_recon", action="store_true", help="Set to use analytical solution for recon parameter sigma"
-        )
-        parser.add_argument(
-            "--fixed_model_var", action="store_true", help="Fix the variance of the transformation")
-        parser.add_argument(
-            "--trainable_prior",
-            action="store_true", help="Set to make trainable"
-        )
-        parser.add_argument(
-            "--prior_weights_init",
-            nargs=2,
-            type=float,
-            default=[-4., 5.], help="Initialization of log-prior weights: alpha, beta. Default: -4, 5"
-        )
-        parser.add_argument(
-            "--trainable_recon", action="store_true", help="Set to make trainable"
         )
         parser.add_argument(
             "--recon_weight_init", type=float, default=-5, help="Parameter initialization"
