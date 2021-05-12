@@ -112,8 +112,8 @@ def get_checkoint_path_from_logdir(model_logdir):
 
 def load_model_from_logdir(model_logdir, model_cls=None):
     if model_cls is None:
-        from src.registration_model import model_cls
-        model_cls = model_cls
+        from src.registration_model import RegistrationModel
+        model_cls = RegistrationModel
     checkpoint = get_checkoint_path_from_logdir(model_logdir)
     print(f"Loading model from checkpoint file {checkpoint}")
     try:

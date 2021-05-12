@@ -1,84 +1,58 @@
-import seaborn as sns
 import matplotlib.pyplot as plt
-import pandas as pd
-import numpy as np
 import argparse
 import torch
 import src.util as util
-import torchreg
+import os
+import random
+import imageio
 from sklearn.metrics import roc_curve
 from sklearn.metrics import roc_auc_score
+import src.eval.config as config
 
 
-def load_model(weights):
-    # load model
-    model = util.load_model_from_logdir(weights)
-    model.eval()
-    return model
+def load_bg_mask():
+    # load a mask of potential background areas
+    mask = imageio.imread("./src/eval/mask.png")
+    mask = torch.as_tensor(mask).view(1,224,160,1)
+    potential_bg = mask == 255 
+    return potential_bg
 
-
-def load_datasets():
-    # load data
-    brains_dm = util.load_datamodule_from_name(
-        "brain2d", batch_size=32, pairs=False)
-    brats_dm = util.load_datamodule_from_name(
-        "brats2d", batch_size=32, pairs=False)
-    return brains_dm, brats_dm
-
-
-def get_batch(dm1, dm2, device):
-    dl1 = dm1.test_dataloader()
-    batch1 = next(iter(dl1))
-    I0 = batch1['I']['data'].to(device)
-    S0 = batch1['S']['data'].to(device)
-
-    dl2 = dm2.test_dataloader()
-    batch2 = next(iter(dl2))
-    I1 = batch2['I']['data'].to(device)
-    S1 = batch2['S']['data'].to(device)
-
-    return I0, S0, I1, S1
-
-
-def predict(model, I0, I1, S0, S1):
-    bound_1, info = model.bound(I0, I1, bidir=False)
-    transform = info["transform"]
-    S01 = model.transformer(S0, transform, mode="nearest")
-    return bound_1, S01
-
-
-def group_bounds_by_category(S1, S01, bound1):
+def group_bounds_by_tumor_or_notumor(I1, S1, bound1, potential_bg):
     # get foreground mask from annotated brain dataset
-    foreground_idx = (S01 > 0)
+    background_idx = potential_bg & (I1 <= 0.01)
     # get tumor mask
     tumor_idx = (S1 == 1) | (S1 == 3)  # Tumor core (necrotic + enhanching)
     # get non-tumor mask
-    non_tumor_idx = torch.logical_not(tumor_idx) & foreground_idx
+    non_tumor_idx = torch.logical_not(tumor_idx) & torch.logical_not(background_idx)
 
     tumor_bounds = bound1[tumor_idx].flatten().cpu().tolist()
     non_tumor_bounds = bound1[non_tumor_idx].flatten().cpu().tolist()
+    
+    # sample 500 pixels for plotting (proportionally)
+    K = len(tumor_bounds) + len(non_tumor_bounds)
+    tumor_bounds = random.sample(tumor_bounds, k=int(len(tumor_bounds) / K * 500))
+    non_tumor_bounds = random.sample(non_tumor_bounds, k=int(len(non_tumor_bounds) / K * 500))
 
-    # build list of classes and bounds
-    class_labels = [0] * len(non_tumor_bounds) + [1] * \
-        len(tumor_bounds)  # 0 = Non-tumor, 1=Tumor
-    bounds = non_tumor_bounds + tumor_bounds
+    return tumor_bounds, non_tumor_bounds
 
-    return class_labels, bounds
+def get_bounds_for_model(model_name):
+    potential_bg = load_bg_mask()
+    subject_ids = os.listdir(os.path.join(config.MODELS[model_name]["path"], "p_tumor"))
+    
+    tumor_bounds, non_tumor_bounds = [], []
+    
+    for subject_id in subject_ids:
+        p_tumor = torch.load(os.path.join(config.MODELS[model_name]["path"], "p_tumor", subject_id))
+        I, S = util.load_subject_from_dataset("brats2d", "test", subject_id)
+        I = I["data"]
+        S = S["data"]
+        tb, ntb = group_bounds_by_tumor_or_notumor(I, S, p_tumor, potential_bg)
+        tumor_bounds += tb
+        non_tumor_bounds += ntb
+        
+    return tumor_bounds, non_tumor_bounds
+    
 
-
-def test_model(model):
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    model.to(device)
-
-    # load data
-    brains_dm, brats_dm = load_datasets()
-    I0, S0, I1, S1 = get_batch(brains_dm, brats_dm, device=device)
-
-    # predict
-    bound1, S01 = predict(model, I0, I1, S0, S1)
-    class_labels, bounds = group_bounds_by_category(S1, S01, bound1)
-
-    return class_labels, bounds
 
 
 def plot_setup(title):
@@ -96,33 +70,29 @@ def plot_finish(fname):
     fig.savefig(fname + '.pdf')
 
 
-def plot_roc_curve(true_labels, predicted_probs, model_name):
-    """plots the ROC curve and calculates the AUC
-
-    Args:
-        true_labels ([type]): list of true labels, encoded as [0, 1]
-        predicted_probs ([type]): scores/probailities of class 1
-    """
+def plot_model(model_name):
+    tumor_bounds, non_tumor_bounds = get_bounds_for_model(model_name)
 
     # get true positive rate, false negative rate
-    fpr, tpr, thresholds = roc_curve(true_labels, predicted_probs)
+    class_labels = [0] * len(non_tumor_bounds) + [1] * \
+        len(tumor_bounds)  # 0 = Non-tumor, 1=Tumor
+    bounds = non_tumor_bounds + tumor_bounds
+    fpr, tpr, thresholds = roc_curve(class_labels, bounds)
 
     # calculate area under the courve (AUC)
-    auc = roc_auc_score(true_labels, predicted_probs)
+    auc = roc_auc_score(class_labels, bounds)
     print(f'AUC of {model_name}: {auc}')
 
-    plt.plot(fpr, tpr, label=model_name)
+    label = config.MODELS[model_name]["display_name"] + f", {auc:.2f} AUC"
+    plt.plot(fpr, tpr, label=label)
 
 
 def main(args):
-    torchreg.settings.set_ndims(2)
-    plot_setup(title="ROC Cruves of annotated Tumors")
-    models = [("MSE", "./lightning_logs/mse_analytical_prior_trainable_recon"),
-              ("Semantic Loss", "./lightning_logs/semantic_loss_analytical_prior_trainable_recon")]
-    for model_name, weights in models:
-        model = load_model(weights)
-        class_labels, bounds = test_model(model)
-        plot_roc_curve(class_labels, bounds, model_name)
+    # torchreg.settings.set_ndims(2)
+    model_names = config.FULL_MODELS
+    plot_setup(title=None)
+    for model_name in model_names:
+        plot_model(model_name)
     plot_finish(args.file)
 
 
