@@ -71,6 +71,18 @@ def load_datamodule_from_name(dataset_name, **args):
     return datamodule
 
 
+def load_subject_from_dataset(dataset_name, split, subject_id):
+    datamodule = load_datamodule_from_name(dataset_name)
+    if split == 'test':
+        dataset = datamodule.test_dataloader().dataset
+    elif split == 'val':
+        dataset = datamodule.val_dataloader().dataset
+    elif split == 'train':
+        dataset = datamodule.train_dataloader().dataset
+    I, S = dataset.load_subject(subject_id)
+    return I, S
+
+
 def load_datamodule_for_model(model, batch_size=None):
     """Loads the datamodule for the model. kwargs set will overwrite model defaults.
 
@@ -98,21 +110,24 @@ def get_checkoint_path_from_logdir(model_logdir):
     return sorted(epoch_to_checkpoint.items(), key=lambda t: t[0])[-1][1]
 
 
-def load_model_from_logdir(model_logdir):
+def load_model_from_logdir(model_logdir, model_cls=None):
+    if model_cls is None:
+        from src.registration_model import model_cls
+        model_cls = model_cls
     checkpoint = get_checkoint_path_from_logdir(model_logdir)
     print(f"Loading model from checkpoint file {checkpoint}")
-    from src.registration_model import RegistrationModel
     try:
-        model = RegistrationModel.load_from_checkpoint(
+        model = model_cls.load_from_checkpoint(
             checkpoint_path=checkpoint, strict=True
         )
     except RuntimeError as e:
         print("WARNING: ", e)
         print("reloading model with non-strict mapping...")
-        model = RegistrationModel.load_from_checkpoint(
+        model = model_cls.load_from_checkpoint(
             checkpoint_path=checkpoint, strict=False
         )
 
+    model.eval()
     return model
 
 
