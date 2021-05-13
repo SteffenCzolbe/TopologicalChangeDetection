@@ -13,9 +13,10 @@ import src.eval.config as config
 def load_bg_mask():
     # load a mask of potential background areas
     mask = imageio.imread("./src/eval/mask.png")
-    mask = torch.as_tensor(mask).view(1,224,160,1)
-    potential_bg = mask == 255 
+    mask = torch.as_tensor(mask).view(1, 224, 160, 1)
+    potential_bg = mask == 255
     return potential_bg
+
 
 def group_bounds_by_tumor_or_notumor(I1, S1, bound1, potential_bg):
     # get foreground mask from annotated brain dataset
@@ -23,44 +24,49 @@ def group_bounds_by_tumor_or_notumor(I1, S1, bound1, potential_bg):
     # get tumor mask
     tumor_idx = (S1 == 1) | (S1 == 3)  # Tumor core (necrotic + enhanching)
     # get non-tumor mask
-    non_tumor_idx = torch.logical_not(tumor_idx) & torch.logical_not(background_idx)
+    non_tumor_idx = torch.logical_not(
+        tumor_idx) & torch.logical_not(background_idx)
 
     tumor_bounds = bound1[tumor_idx].flatten().cpu().tolist()
     non_tumor_bounds = bound1[non_tumor_idx].flatten().cpu().tolist()
-    
+
     # sample 500 pixels for plotting (proportionally)
     K = len(tumor_bounds) + len(non_tumor_bounds)
-    tumor_bounds = random.sample(tumor_bounds, k=int(len(tumor_bounds) / K * 500))
-    non_tumor_bounds = random.sample(non_tumor_bounds, k=int(len(non_tumor_bounds) / K * 500))
+    tumor_bounds = random.sample(
+        tumor_bounds, k=int(len(tumor_bounds) / K * 500))
+    non_tumor_bounds = random.sample(
+        non_tumor_bounds, k=int(len(non_tumor_bounds) / K * 500))
 
     return tumor_bounds, non_tumor_bounds
 
+
 def get_bounds_for_model(model_name):
     potential_bg = load_bg_mask()
-    subject_ids = os.listdir(os.path.join(config.MODELS[model_name]["path"], "p_tumor"))
-    
+    subject_ids = os.listdir(os.path.join(
+        config.MODELS[model_name]["path"], "p_tumor"))
+
     tumor_bounds, non_tumor_bounds = [], []
-    
+
     for subject_id in subject_ids:
-        p_tumor = torch.load(os.path.join(config.MODELS[model_name]["path"], "p_tumor", subject_id))
+        p_tumor = torch.load(os.path.join(
+            config.MODELS[model_name]["path"], "p_tumor", subject_id))
         I, S = util.load_subject_from_dataset("brats2d", "test", subject_id)
         I = I["data"]
         S = S["data"]
         tb, ntb = group_bounds_by_tumor_or_notumor(I, S, p_tumor, potential_bg)
         tumor_bounds += tb
         non_tumor_bounds += ntb
-        
-    return tumor_bounds, non_tumor_bounds
-    
 
+    return tumor_bounds, non_tumor_bounds
 
 
 def plot_setup(title):
-    plt.plot([0, 1], [0, 1], color='darkblue', linestyle='--')
     plt.title(title)
 
 
 def plot_finish(fname):
+    plt.plot([0, 1], [0, 1], color='darkblue',
+             linestyle='--', label="Random Classifier")
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
     plt.legend()
