@@ -69,7 +69,7 @@ def plot_finish(fname):
              linestyle='--', label="Random Classifier")
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.legend()
+    plt.legend(loc='lower right')
     # save
     fig = plt.gcf()
     fig.savefig(fname + '.png')
