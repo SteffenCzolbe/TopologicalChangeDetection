@@ -17,6 +17,7 @@ data/MNIST/*
 !data/MNIST/download.py
 !data/MNIST/download_calligraphy_split.py
 trained_models
+trained_auxiliary_models
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
