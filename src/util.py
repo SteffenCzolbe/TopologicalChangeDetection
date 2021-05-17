@@ -71,8 +71,8 @@ def load_datamodule_from_name(dataset_name, **args):
     return datamodule
 
 
-def load_subject_from_dataset(dataset_name, split, subject_id):
-    datamodule = load_datamodule_from_name(dataset_name)
+def load_subject_from_dataset(dataset_name, split, subject_id, **args):
+    datamodule = load_datamodule_from_name(dataset_name, **args)
     if split == 'test':
         dataset = datamodule.test_dataloader().dataset
     elif split == 'val':
