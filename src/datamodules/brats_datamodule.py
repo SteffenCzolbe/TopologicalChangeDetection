@@ -51,11 +51,13 @@ class BraTSDataModule(pl.LightningDataModule):
 def enumerate_labels(tensor):
     # relabel annotations:
     # Background: 0
-    # necrotic/cycstic core: 1
-    # edema: 2
-    # enhancing core: 4 => 3
-    tensor[tensor == 4] = 3
-    return tensor
+    # necrotic/cycstic core: 1 => 1
+    # edema: 2 => 0
+    # enhancing core: 4 => 1
+    t = torch.zeros_like(tensor)
+    t[tensor == 1] = 1
+    t[tensor == 4] = 1
+    return t
 
 
 def take_slice_from_tensor(tensor):
