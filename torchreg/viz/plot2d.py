@@ -57,6 +57,33 @@ class Fig:
             for c, column_title in zip(range(cols), column_titles):
                 self.axs[0, c].set_title(column_title)
 
+    def set_row_label(self, row, label, offset=-30, plot_height=256):
+        """
+        Sets a single row-headline
+
+        Args:
+            row (int): row to add the headline to
+            labels (str): label
+            offset (int, optional): horizontal-offset. Size relative to plot size. Defaults to -30.
+            plot_height (int, optional): vertical-offset. Size relative to plot size. Defaults to -256.
+        """
+        if label is not None:
+            self.axs[row, 0].text(x=-30, y=plot_height/2, s=label, fontsize=12,
+                                  rotation=90, verticalalignment='center', horizontalalignment='center')
+
+    def set_row_labels(self, labels, offset=-30, plot_height=256):
+        """
+        Sets row-headlines
+
+        Args:
+            labels (list(str)): list of labels
+            offset (int, optional): horizontal-offset. Size relative to plot size. Defaults to -30.
+            plot_height (int, optional): vertical-offset. Size relative to plot size. Defaults to -256.
+        """
+        for row, label in enumerate(labels):
+            self.set_row_label(row, label, offset=offset,
+                               plot_height=plot_height)
+
     def plot_img(self, row, col, image, title=None, vmin=None, vmax=None, cmap="gray"):
         """
         plots a tensor of the form C x H x W at position row, col.

@@ -33,30 +33,33 @@ def get_batch(dm1, dm2, device):
 
 def predict(model, I0, I1):
     bound, info = model.bound(I0, I1, bidir=False)
-    bound_bidir_0, bound_bidir_1, _, _ = model.bound(I0, I1, bidir=True)
+    bound_bidir_0, bound_bidir_1, info_0to1, info_1to0 = model.bound(
+        I0, I1, bidir=True)
 
-    return info["morphed"], bound, bound_bidir_1, bound_bidir_0
+    return info_0to1["morphed"], info_1to0["morphed"], bound, bound_bidir_1, bound_bidir_0
 
 
-def plot(file, I0, I01, I1, bound, bound_bidir_1, bound_bidir_0):
+def plot(file, I0, I10, I01, I1, bound, bound_bidir_1, bound_bidir_0):
     rows = 8
     # set-up fig
-    fig = viz.Fig(rows, 6, None, figsize=(5, 8))
+    fig = viz.Fig(rows, 7, None, figsize=(6, 8))
     # adjust subplot spacing
     fig.fig.subplots_adjust(hspace=0.05, wspace=0.05)
 
     for row in range(rows):
         fig.plot_img(row, 0, I0[row], vmin=0, vmax=1,
-                     title="I0" if row == 0 else None)
-        fig.plot_img(row, 1, I01[row], vmin=0, vmax=1,
-                     title="I01" if row == 0 else None)
-        fig.plot_img(row, 2, I1[row], vmin=0, vmax=1,
-                     title="I1" if row == 0 else None)
-        fig.plot_img(row, 3, bound[row], cmap='jet',
-                     title="p(I1 | I0)" if row == 0 else None)
-        fig.plot_img(row, 4, bound_bidir_1[row], cmap='jet',
+                     title="I" if row == 0 else None)
+        fig.plot_img(row, 1, I10[row], vmin=0, vmax=1,
+                     title="J to I" if row == 0 else None)
+        fig.plot_img(row, 2, I01[row], vmin=0, vmax=1,
+                     title="I to J" if row == 0 else None)
+        fig.plot_img(row, 3, I1[row], vmin=0, vmax=1,
+                     title="J" if row == 0 else None)
+        fig.plot_img(row, 4, bound[row], cmap='jet',
+                     title="p(J | I)" if row == 0 else None)
+        fig.plot_img(row, 5, bound_bidir_1[row], cmap='jet',
                      title="bidir J" if row == 0 else None)
-        fig.plot_img(row, 5, bound_bidir_0[row], cmap='jet',
+        fig.plot_img(row, 6, bound_bidir_0[row], cmap='jet',
                      title="bidir I" if row == 0 else None)
 
     fig.save(file + ".pdf", close=False)
@@ -68,9 +71,9 @@ def main(hparams):
     model, dm1, dm2 = load_module_and_dataset(hparams)
     model.to(device)
     I0, I1 = get_batch(dm1, dm2, device)
-    I01, bound, bound_bidir_1, bound_bidir_0 = predict(
+    I01, I10, bound, bound_bidir_1, bound_bidir_0 = predict(
         model, I0, I1)
-    plot(hparams.file, I0, I01, I1, bound, bound_bidir_1, bound_bidir_0)
+    plot(hparams.file, I0, I10, I01, I1, bound, bound_bidir_1, bound_bidir_0)
 
 
 if __name__ == "__main__":

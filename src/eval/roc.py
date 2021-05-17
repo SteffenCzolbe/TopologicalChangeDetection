@@ -22,7 +22,7 @@ def group_bounds_by_tumor_or_notumor(I1, S1, bound1, potential_bg):
     # get foreground mask from annotated brain dataset
     background_idx = potential_bg & (I1 <= 0.01)
     # get tumor mask
-    tumor_idx = (S1 == 1) | (S1 == 3)  # Tumor core (necrotic + enhanching)
+    tumor_idx = (S1 == 1)
     # get non-tumor mask
     non_tumor_idx = torch.logical_not(
         tumor_idx) & torch.logical_not(background_idx)
