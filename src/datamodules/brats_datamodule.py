@@ -52,11 +52,12 @@ def enumerate_labels(tensor):
     # relabel annotations:
     # Background: 0
     # necrotic/cycstic core: 1 => 1
-    # edema: 2 => 0
+    # edema: 2 => 2
     # enhancing core: 4 => 1
     t = torch.zeros_like(tensor)
     t[tensor == 1] = 1
     t[tensor == 4] = 1
+    t[tensor == 2] = 2
     return t
 
 
