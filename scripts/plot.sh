@@ -12,8 +12,12 @@ python3 -m src.eval.qualitative_comparison --file plots/qualitative_comparison
 pdfcrop plots/qualitative_comparison.pdf plots/qualitative_comparison.pdf
 
 # tumor detection
-python3 -m src.eval.tumor_detection --weights  trained_models/mse --samples 32
-python3 -m src.eval.tumor_detection --weights  trained_models/semantic_loss --samples 32
+python3 -m src.eval.tumor_detection --weights  trained_models/mse --samples 32 --non_cached
+python3 -m src.eval.tumor_detection --weights  trained_models/semantic_loss --samples 32 --non_cached
+
+# plot tumor detection
+python3 -m src.eval.tumor_detection_plot --file plots/tumor
+pdfcrop plots/tumor.pdf plots/tumor.pdf
 
 # ROC curves and AUC
 python3 -m src.eval.roc
