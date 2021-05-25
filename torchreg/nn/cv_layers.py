@@ -175,8 +175,8 @@ class GradientMagnitude(nn.Module):
 
 if __name__ == "__main__":
     settings.set_ndims(2)
-    g = GaussianDerivative(sigma=0.5, dim=3)
+    g = GradientMagnitude(sigma=0.5)
     img = torch.zeros(1, 1, 5, 5, 1)
     img[:, :, 1, 1] = 1
 
-    print(g.conv_layer.weight.squeeze())
+    print(g(img).squeeze())

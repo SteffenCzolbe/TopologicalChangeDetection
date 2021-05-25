@@ -9,6 +9,7 @@ import src.util as util
 from tqdm import tqdm
 from src.datamodules.brainmri_datamodule import BrainMRIDataset
 import torchreg.viz as viz
+import src.eval.config as config
 """
       We caluclate the term
 
@@ -35,7 +36,9 @@ def mean_pIK(args):
     Ks = Ks['I']['data'].to(device)
 
     # load model
-    model = util.load_model_from_logdir(args.weights)
+    weights = config.MODELS[args.model_name]["path"]
+    model_cls = config.MODELS[args.model_name]["model_cls"]
+    model = util.load_model_from_logdir(weights, model_cls=model_cls)
     model.eval()
     model.to(device)
 
@@ -78,7 +81,9 @@ def p_tumor(args):
     brats_dl = brats_dm.test_dataloader()
 
     # load model
-    model = util.load_model_from_logdir(args.weights)
+    weights = config.MODELS[args.model_name]["path"]
+    model_cls = config.MODELS[args.model_name]["model_cls"]
+    model = util.load_model_from_logdir(weights, model_cls=model_cls)
     model.eval()
     model.to(device)
 
@@ -114,12 +119,16 @@ def p_tumor(args):
             fig.plot_img(i, 1, pJI.mean(dim=0), title="p(J|I)")
             fig.plot_img(i, 2, mean_pIKs_to_J.mean(dim=0), title="p(I|K)")
             fig.plot_img(i, 3, ptumor, title="p_tumor")
+            print(f"p(J | I) min: {pJI.min()}, max: {pJI.max()}")
+            print(f"p_tumpr min: {ptumor.min()}, max: {ptumor.max()}")
         if i == 8:
-            fig.save(os.path.join(args.weights, "p_tumor.png"))
+            fig.save(os.path.join(
+                config.MODELS[args.model_name]["path"], "p_tumor.png"))
 
 
 def main(args):
-    args.mean_pIK_dir = os.path.join(args.weights, "mean_pIK")
+    args.mean_pIK_dir = os.path.join(
+        config.MODELS[args.model_name]["path"], "mean_pIK")
     if os.path.isdir(args.mean_pIK_dir) and not args.non_cached:
         print('using cached mean_pIK')
     else:
@@ -135,7 +144,8 @@ def main(args):
         # compute means
         mean_pIK(args)
 
-    args.p_tumor_dir = os.path.join(args.weights, "p_tumor")
+    args.p_tumor_dir = os.path.join(
+        config.MODELS[args.model_name]["path"], "p_tumor")
     if os.path.isdir(args.p_tumor_dir) and not args.non_cached:
         print('using cached p_tumor')
     else:
@@ -157,10 +167,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # add PROGRAM level args
     parser.add_argument(
-        "--weights",
+        "--model_name",
         type=str,
-        default="./weights.ckpt",
-        help="model checkpoint to initialize with",
+        help="name of model to test",
     )
     parser.add_argument(
         "--non_cached", action="store_true", help="Set to overwrite cached results")

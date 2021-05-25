@@ -7,19 +7,28 @@ import src.util as util
 
 
 class ELBO(nn.Module):
-    def __init__(self, data_dims, semantic_loss, init_recon_log_var):
+    def __init__(self, data_dims, semantic_loss, init_recon_log_var, full_covar):
         super().__init__()
         self.ndims = torchreg.settings.get_ndims()
         self.data_dims = data_dims
         self.semantic_loss = semantic_loss
+        self.full_covar = full_covar
         if self.semantic_loss:
             self.load_semantic_loss_model(model_path=semantic_loss)
         self.pi = torch.as_tensor(3.14159)
+
+        if self.full_covar:
+            # Cholesky decomposition lower triangular
+            weight = torch.ones(
+                self.data_dims[0], self.data_dims[0]) * init_recon_log_var
+            self.L_full = torch.nn.parameter.Parameter(
+                weight, requires_grad=True)
 
         if self.data_dims[0] > 1:
             init_recon_log_var = [init_recon_log_var] * self.data_dims[0]
         self.recon_log_var = torch.nn.parameter.Parameter(
             torch.as_tensor(init_recon_log_var, dtype=torch.float32), requires_grad=True)
+
         self.running_mean_log_alpha = nn.BatchNorm1d(
             1, track_running_stats=True)
         self.running_mean_log_beta = nn.BatchNorm1d(
@@ -27,6 +36,10 @@ class ELBO(nn.Module):
         self.grad_norm = torchreg.metrics.GradNorm(
             penalty="l2", reduction="none")
         self.transformer = torchreg.nn.SpatialTransformer()
+
+    @property
+    def L(self):
+        return torch.tril(self.L_full)
 
     @property
     def log_alpha(self):
@@ -65,14 +78,34 @@ class ELBO(nn.Module):
 
         I01 = self.transformer(I0, transform)
 
-        diff = (I1 - I01)**2
+        if self.full_covar:
+            # full covar matrix, learned via cholensky decomposition \Sigma^-1 = L L^T
 
-        var = torch.exp(self.recon_log_var).view(1, D, 1, 1, 1)
-        log_var = self.recon_log_var
+            # calculate ||v^T L||^2
+            diff = I1 - I01
+            diff = diff.permute(0, 2, 3, 4, 1).unsqueeze(
+                4)  # reshape to BxHxWxDx1xC
+            diff = torch.matmul(diff, self.L)
+            diff = diff.squeeze(4).permute(
+                0, 4, 1, 2, 3)  # reshape back to BxCxHxWxD
+            # squared norm along channel dim
+            diff = torch.sum(diff**2, dim=1, keepdim=True)
 
-        loss = (D/2 * torch.log(2 * self.pi)  # factor n multiplication via boradcasting during addition
-                + 0.5 * log_var.sum()  # factor n multiplication via boradcasting during addition
-                + 0.5 * torch.sum(diff / var, dim=1, keepdim=True))
+            loss = (D/2 * torch.log(2 * self.pi)  # factor n multiplication via boradcasting during addition
+                    # factor n multiplication via boradcasting during addition
+                    - 0.5 * torch.log(torch.diagonal(self.L) ** 2).sum()
+                    + 0.5 * diff)
+
+        else:
+            # diagonal covar matrix
+            diff = (I1 - I01)**2
+
+            var = torch.exp(self.recon_log_var).view(1, D, 1, 1, 1)
+            log_var = self.recon_log_var
+
+            loss = (D/2 * torch.log(2 * self.pi)  # factor n multiplication via boradcasting during addition
+                    + 0.5 * log_var.sum()  # factor n multiplication via boradcasting during addition
+                    + 0.5 * torch.sum(diff / var, dim=1, keepdim=True))
 
         if reduction == 'none':
             return loss

@@ -3,22 +3,29 @@
 python3 -m src.eval.samples --ds1 brain2d --ds2 brats2d --weights ./trained_models/mse --file plots/mse_samples
 python3 -m src.eval.samples --ds1 brain2d --ds2 brats2d --weights ./trained_models/semantic_loss --file plots/semantic_loss_samples
 
+python3 -m src.eval.samples --ds1 brain2d --ds2 brats2d --weights ./lightning_logs/version_1 --file plots/version_1
+
 # overlay plot
 python3 -m src.eval.overlay --weights trained_models/mse --file plots/mse_overlay --range 3 20
 python3 -m src.eval.overlay --weights trained_models/semantic_loss --file plots/semantic_loss_overlay --range -1300 -300
 
-# qualitative_eval img, comparison of models
-python3 -m src.eval.qualitative_comparison --file plots/qualitative_comparison
-pdfcrop plots/qualitative_comparison.pdf plots/qualitative_comparison.pdf
 
 # tumor detection
-python3 -m src.eval.tumor_detection --weights  trained_models/mse --samples 32 --non_cached
-python3 -m src.eval.tumor_detection --weights  trained_models/semantic_loss --samples 32 --non_cached
+python3 -m src.eval.tumor_detection --model_name  mse --samples 32 --non_cached
+python3 -m src.eval.tumor_detection --model_name  semantic_loss --samples 32 --non_cached
+python3 -m src.eval.tumor_detection --model_name  vae_anomaly_detection_mse --samples 32 --non_cached
+python3 -m src.eval.tumor_detection --model_name  vae_anomaly_detection_semantic_loss --samples 32 --non_cached
+python3 -m src.eval.tumor_detection --model_name  jac_det_model --samples 32 --non_cached
+python3 -m src.eval.tumor_detection --model_name  li_wyatt_model --samples 32 --non_cached
+python3 -m src.eval.tumor_detection_for_segmentation_model --model_name  segmentation_model --non_cached
+python3 -m src.eval.tumor_detection_for_anomaly_detection_model --model_name  vae_anomaly_detection --non_cached
 
-# plot tumor detection
-python3 -m src.eval.tumor_detection_plot --file plots/tumor
-pdfcrop plots/tumor.pdf plots/tumor.pdf
+# plot publication fig
+python3 -m src.eval.publication_fig --file plots/pub_fig
+pdfcrop plots/pub_fig.pdf plots/pub_fig.pdf
 
 # ROC curves and AUC
-python3 -m src.eval.roc
-pdfcrop plots/roc.pdf plots/roc.pdf 
+python3 -m src.eval.roc --file plots/roc_tumor
+pdfcrop plots/roc_tumor.pdf plots/roc_tumor.pdf 
+python3 -m src.eval.roc --file plots/roc_tumor_edema --include_edema
+pdfcrop plots/roc_tumor_edema.pdf plots/roc_tumor_edema.pdf 

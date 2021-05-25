@@ -25,7 +25,7 @@ def make_cmap_transparent(cmap, N=255):
 
 
 class Fig:
-    def __init__(self, rows=1, cols=1, title=None, figsize=None, transparent_background=False, column_titles=None):
+    def __init__(self, rows=1, cols=1, title=None, figsize=None, transparent_background=False, column_titles=None, axs=None):
         """
         instantiates a plot.
         Parameters:
@@ -34,11 +34,18 @@ class Fig:
             title: title of the figure
             transparent_background: set to make background transparent instead of white
             column_titles: List of column titles
+            axs: Optional, 2d array of axes. If provided, will not create its own axes. Can be used to specify exact margins with Gridspec
         """
         # instantiate plot
-        self.fig, self.axs = plt.subplots(
-            nrows=rows, ncols=cols, dpi=300, figsize=figsize, frameon=not transparent_background
-        )
+        if axs is None:
+            self.fig, self.axs = plt.subplots(
+                nrows=rows, ncols=cols, dpi=300, figsize=figsize, frameon=not transparent_background
+            )
+        else:
+            self.fig = plt.gcf()
+            self.fig.set_size_inches(figsize)
+            self.fig.set_dpi(300)
+            self.axs = axs
 
         # extend empty dimensions to array
         if cols == 1:
@@ -83,6 +90,15 @@ class Fig:
         for row, label in enumerate(labels):
             self.set_row_label(row, label, offset=offset,
                                plot_height=plot_height)
+
+    def set_col_labels(self, labels):
+        """Set column labels
+
+        Args:
+            labels (list(str)): list of labels
+        """
+        for col, label in enumerate(labels):
+            self.axs[0, col].title.set_text(label)
 
     def plot_img(self, row, col, image, title=None, vmin=None, vmax=None, cmap="gray"):
         """

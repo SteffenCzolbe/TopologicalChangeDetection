@@ -25,7 +25,7 @@ class BraTSDataModule(pl.LightningDataModule):
         self.data_dir = data_dir
         self.batch_size = batch_size
         self.dims = (1, 160, 192, 224) if volumetric else (1, 224, 160, 1)
-        self.class_cnt = 4
+        self.class_cnt = 3
         self.class_names = [
             'Normal', 'Necrotic/Cystic Core', 'Edema', 'Enhancing Core']
         self.num_workers = 32
@@ -40,9 +40,27 @@ class BraTSDataModule(pl.LightningDataModule):
         if not os.path.isdir(os.path.join(self.data_dir, "preprocessed_data")):
             raise Exception('BraTS data not found.')
 
-    def test_dataloader(self, shuffle=False):
+    def train_dataloader(self, shuffle=False):
+        augmentation = tio.RandomAffine(
+            scales=(0.9, 1.2),
+            degrees=10,
+        )
         dataset = BraTSDataset(
             self.data_dir, "train", pairs=self.pairs, atlasreg=self.atlasreg,
+            loadseg=self.load_val_seg, volumetric=self.volumetric, augmentation=augmentation,
+        )
+        return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=shuffle)
+
+    def val_dataloader(self, shuffle=False):
+        dataset = BraTSDataset(
+            self.data_dir, "val", pairs=self.pairs, atlasreg=self.atlasreg,
+            loadseg=self.load_val_seg, volumetric=self.volumetric,
+        )
+        return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=shuffle)
+
+    def test_dataloader(self, shuffle=False):
+        dataset = BraTSDataset(
+            self.data_dir, "test", pairs=self.pairs, atlasreg=self.atlasreg,
             loadseg=self.load_val_seg, volumetric=self.volumetric,
         )
         return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=shuffle)
@@ -67,7 +85,7 @@ def take_slice_from_tensor(tensor):
 
 
 class BraTSDataset(Dataset):
-    def __init__(self, data_dir, datasplit, pairs, atlasreg, loadseg, volumetric=True, limitsize=None, deterministic=True):
+    def __init__(self, data_dir, datasplit, pairs, atlasreg, loadseg, volumetric=True, limitsize=None, deterministic=True, augmentation=None):
         """BraTSDataset dataset
 
         Args:
@@ -87,9 +105,9 @@ class BraTSDataset(Dataset):
         self.loadseg = loadseg
         self.limitsize = limitsize
         self.deterministic = deterministic
+        self.augmentation = augmentation
 
         # preprocessing, performed before augmentation
-        transforms = []
         to_2d_transform = tio.Lambda(take_slice_from_tensor,
                                      types_to_apply=[tio.INTENSITY, tio.LABEL])
         intensity_scale_transform = tio.Lambda(
@@ -118,9 +136,11 @@ class BraTSDataset(Dataset):
             self.data_dir, "metadata.csv"), dtype=str)
 
         # filter by train set, successful processing and tumor size
-        self.subjects = df.loc[(df['SPLIT'] == "train") & (
+        subjects = df.loc[(df['SPLIT'] == "train") & (
             df['AUTO_PROCESSING'] == "OK") & (
             df['center_slice_tumor_size'].astype(float) > 500)]['subject_id'].values
+
+        self.subjects = self.split(subjects, datasplit)
 
         # load atlas
         if self.atlasreg:
@@ -128,6 +148,18 @@ class BraTSDataset(Dataset):
                 self.data_dir, "atlas.nii.gz")))
             self.atlas_seg = self.preprocess(tio.LabelMap(
                 tensor=torch.zeros(1, 160, 192, 224, dtype=torch.long)))
+
+    def split(self, subjects, datasplit):
+        # filter by split: 40% for training, 60% for evaluation. We use the same validation and test set here,
+        # as we only use it as a baseline and are short of data
+        n = len(subjects)
+        s = int(n*0.75)
+        if datasplit == 'train':
+            return subjects[:s]
+        elif datasplit == 'val':
+            return subjects[s:]
+        else:
+            return subjects
 
     def __len__(self):
         if self.atlasreg or not self.pairs:
@@ -159,17 +191,23 @@ class BraTSDataset(Dataset):
         label_file = os.path.join(self.data_dir,
                                   'preprocessed_data', subject_id, "seg_aligned.nii.gz")
 
-        # load and preprocess image
+        # load image
         I = tio.ScalarImage(intensity_file)
-        I = self.preprocess(I)
-
         if self.loadseg:
             S = tio.LabelMap(label_file)
-            S = self.preprocess(S)
-        else:
-            S = None
 
-        return I, S
+        # build subject
+        if self.loadseg:
+            subject = tio.Subject(I=I, S=S)
+        else:
+            subject = tio.Subject(I=I)
+
+        # preprocess
+        if self.augmentation:
+            subject = self.augmentation(subject)
+        subject = self.preprocess(subject)
+
+        return subject["I"], subject["S"] if self.loadseg else None
 
     def __getitem__(self, index):
         subject0, subject1 = self.get_subject_ids_from_index(index)

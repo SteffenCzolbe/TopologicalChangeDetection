@@ -26,6 +26,30 @@ def Conv(
                      bias=bias)
 
 
+def ConvTranspose(
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        stride: int = 2,
+        padding: int = 1,
+        output_padding: int = 1,
+        bias: bool = True):
+    ndims = settings.get_ndims()
+    if ndims == 2:
+        # adjust for faked 3rd dimension
+        kernel_size = (kernel_size, kernel_size, 1)
+        padding = (padding, padding, 0)
+        stride = (stride, stride, 1)
+        output_padding = (output_padding, output_padding, 0)
+    return nn.ConvTranspose3d(in_channels=in_channels,
+                              out_channels=out_channels,
+                              kernel_size=kernel_size,
+                              stride=stride,
+                              padding=padding,
+                              output_padding=output_padding,
+                              bias=bias)
+
+
 def Upsample(size=None, scale_factor=None, mode="nearest", align_corners=False):
     ndims = settings.get_ndims()
     mode = interpol_mode(mode)

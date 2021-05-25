@@ -7,17 +7,15 @@ import torch.nn.functional as F
 import torchreg.nn as tnn
 import pytorch_lightning as pl
 import torchreg
-from .models.encoder import Encoder
-from .models.decoder import FixedDecoder
-from .models.elbo import ELBO
+from src.models.encoder import Encoder
 import src.util as util
 from src.semantic_loss import SemanticLossModel
 from typing import Dict, Optional
 
 
-class RegistrationModel(pl.LightningModule):
+class DeterministicRegistrationModel(pl.LightningModule):
     """
-    We use pytorch lightning to organize our model code
+    Deterministic registration model following "Semantic similarity metrics for learned image registration", Czolbe 2021
     """
 
     def __init__(self, hparams):
@@ -35,20 +33,30 @@ class RegistrationModel(pl.LightningModule):
             bnorm=self.hparams.bnorm,
             dropout=self.hparams.dropout,
         )
-        self.decoder = FixedDecoder(
-            integration_steps=self.hparams.integration_steps)
-        self.elbo = ELBO(data_dims=self.hparams.data_dims,
-                         semantic_loss=self.hparams.semantic_loss,
-                         init_recon_log_var=self.hparams.recon_weight_init,
-                         full_covar=self.hparams.get('full_covar'))
 
         # various components for loss caluclation and evaluation
+        self.regularizer = torchreg.metrics.GradNorm(
+            penalty="l2", reduction="none")
+        self.mse = nn.MSELoss(reduction="none")
         self.dice_overlap = torchreg.metrics.DiceOverlap(
             classes=list(range(self.hparams.data_classes))
         )
         self.jacobian_determinant = torchreg.metrics.JacobianDeterminant(
             reduction='none')
         self.transformer = tnn.SpatialTransformer()
+        if self.hparams.semantic_loss:
+            self.load_semantic_loss_model(
+                model_path=self.hparams.semantic_loss)
+
+    def load_semantic_loss_model(self, model_path):
+        # load semantic loss model
+        model_checkpoint = util.get_checkoint_path_from_logdir(model_path)
+        self.semantic_loss_model = SemanticLossModel.load_from_checkpoint(
+            model_checkpoint)
+        util.freeze_model(self.semantic_loss_model)
+        # adjust image channels for augmented data
+        channel_cnt = sum(self.semantic_loss_model.net.enc_feat)
+        self.hparams.data_dims = (channel_cnt, *self.hparams.data_dims[1:])
 
     def configure_optimizers(self):
         opt = torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
@@ -96,38 +104,7 @@ class RegistrationModel(pl.LightningModule):
         Returns:
             Dictionary with various information
         """
-
-        # register the images
-        mu, log_var = self.encoder(I0, I1)
-
-        # sample the flow field
-        flow = mu
-
-        # apply the transformation
-        transform = self.decoder.get_transform(
-            flow, inverse=False)
-        I01, _ = self.decoder.apply_transform(
-            transform, I0)  # morph image
-
-        # calculate the bound
-        bound, recon_loss, kl_loss = self.elbo.loss(
-            mu, log_var, transform, I0, I1, reduction='none')
-
-        return {"bound": bound,
-                "transform": transform,
-                "morphed": I01,
-                "recon_loss": recon_loss,
-                "kl_loss": kl_loss}
-
-    def sample_transformation(self, mu, log_var):
-        std = torch.exp(log_var / 2)
-        # conditional posterior distribution q(z | x)
-        q = torch.distributions.Normal(mu, std)
-        # sample z ~ q(z | x)
-        transform = q.rsample()
-        if self.ndims == 2:
-            transform[:, 2] = 0  # no depth-whise flow in 2d case
-        return transform
+        raise NotImplementedError("overwrite this method")
 
     def step(self, I0: torch.Tensor, I1: torch.Tensor, S0: Optional[torch.Tensor] = None, S1: Optional[torch.Tensor] = None) -> Dict[str, float]:
         """[summary]
@@ -141,24 +118,28 @@ class RegistrationModel(pl.LightningModule):
         Returns:
             Dict[str, float]: log values
         """
-        mu, log_var = self.encoder(I0, I1)
-        transform = self.sample_transformation(mu, log_var)
-        I01, S01 = self.decoder(transform, I0, seg=S0)
+        # register the images
+        transform, _ = self.encoder(I0, I1)
 
-        loss, recon_loss, kl_loss = self.elbo.loss(
-            mu, log_var, transform, I0, I1, reduction='mean')
+        # augment the images
+        if self.hparams.semantic_loss:
+            I0 = self.semantic_loss_model.augment_image(I0)
+            I1 = self.semantic_loss_model.augment_image(I1)
+
+        # apply the transformation
+        I01 = self.transformer(I0, transform)
+
+        # calculate the loss
+        reg_loss = self.regularizer(transform)
+        sim_loss = self.mse(I01, I1)
+        loss = self.hparams.regularizer_strengh * reg_loss + sim_loss
+        loss = loss.mean()
 
         with torch.no_grad():
-            jacdet = self.jacobian_determinant(mu)
+            jacdet = self.jacobian_determinant(transform)
 
         logs = {
             "loss": loss,
-            "recon_loss": recon_loss,
-            "kl_loss": kl_loss,
-            "mean_latent_log_var": log_var.mean(),
-            "prior_log_alpha": self.elbo.log_alpha.mean(),
-            "prior_log_beta": self.elbo.log_beta.mean(),
-            "recon_log_var": self.elbo.recon_log_var.mean(),
             "transformation_smoothness": -jacdet.var(),
             "transformation_folding": (jacdet <= 0).float().mean(),
         }
@@ -166,6 +147,7 @@ class RegistrationModel(pl.LightningModule):
         if S0 is not None:
             # evaluate supervised measures
             with torch.no_grad():
+                S01 = self.transformer(S0, transform, mode="nearest")
                 logs["seg_dice_overlap"] = self.dice_overlap(S01, S1)
                 logs["seg_accuracy"] = torch.mean((S01 == S1).float())
 
@@ -208,16 +190,10 @@ class RegistrationModel(pl.LightningModule):
             help="U-Net encoder channels. Decoder uses the reverse. Defaukt: [64, 128, 256, 512]",
         )
         parser.add_argument(
-            "--integration_steps", type=int, default=0, help="Itegration steps on the flow field. Default: 0 (disabled)"
-        )
-        parser.add_argument(
-            "--recon_weight_init", type=float, default=-5, help="Parameter initialization"
+            "--regularizer_strengh", type=float, default=0.1, help="Regularizer strength"
         )
         parser.add_argument(
             "--semantic_loss", type=str, help="Path to semantic model. Set to use semantic reconstruction loss."
-        )
-        parser.add_argument(
-            "--full_covar", action="store_true", help="set to train with the full covariance matrix in the reconstruction loss."
         )
         parser.add_argument(
             "--bnorm", action="store_true", help="set to use batchnormalization."
