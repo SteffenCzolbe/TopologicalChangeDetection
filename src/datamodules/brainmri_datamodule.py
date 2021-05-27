@@ -26,7 +26,7 @@ class BrainMRIDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.dims = (1, 160, 192, 224) if volumetric else (1, 224, 160, 1)
         self.class_cnt = 24
-        self.class_names = ["Background", "Cerebral G. Matter", "Cerebral W. Matter", "Lateral Ventricle", "Inf Lat Ventricle", "Cerebellum W. Matter", "Cerebellum Cortex", "Thalamus", "Caudate", "Putamen", "Pallidum",
+        self.class_names = ["Background", "Cerebral W. Matter", "Cerebral G. Matter", "Lateral Ventricle", "Inf Lat Ventricle", "Cerebellum W. Matter", "Cerebellum Cortex", "Thalamus", "Caudate", "Putamen", "Pallidum",
                             "3rd Ventricle", "4th Ventricle", "Brain Stem", "Hippocampus", "Amygdala", "CSF", "Accumbens area", "Ventral DC", "Vessel", "Choroid plexus", "5th Ventricle", "Cingulate Cortex", "WM hypointensities"]
         self.num_workers = 32
         self.pairs = pairs
@@ -133,13 +133,6 @@ class BrainMRIDataset(Dataset):
             )
         )
 
-        # load atlas
-        if self.atlasreg:
-            self.atlas = self.preprocess(tio.ScalarImage(os.path.join(
-                self.data_dir, "atlas", "brain_aligned.nii.gz")))
-            self.atlas_seg = self.preprocess(tio.LabelMap(os.path.join(
-                self.data_dir, "atlas", "seg_coalesced_aligned.nii.gz")))
-
     def __len__(self):
         if self.atlasreg or not self.pairs:
             return len(self.subjects)
@@ -147,10 +140,11 @@ class BrainMRIDataset(Dataset):
             return self.limitsize if self.limitsize else len(self.subjects)
 
     def get_subject_ids_from_index(self, index):
-        if self.atlasreg or not self.pairs:
-            # register one image to atlas
+        if not self.pairs:
             return self.subjects[index], None
-        if not self.deterministic:
+        elif self.atlasreg:
+            return self.subjects[index], "atlas"
+        elif not self.deterministic:
             # pick two images at random
             N = len(self.subjects)
             idx0 = random.randint(0, N-1)
@@ -165,10 +159,16 @@ class BrainMRIDataset(Dataset):
             return self.subjects[idx0], self.subjects[idx1]
 
     def load_subject(self, subject_id):
-        intensity_file = os.path.join(
-            self.data_dir, "data", subject_id, "brain_aligned.nii.gz")
-        label_file = os.path.join(
-            self.data_dir, "data", subject_id, "seg_coalesced_aligned.nii.gz")
+        if subject_id == "atlas":
+            intensity_file = os.path.join(
+                self.data_dir, "atlas", "brain_aligned.nii.gz")
+            label_file = os.path.join(
+                self.data_dir, "atlas", "seg_coalesced_aligned.nii.gz")
+        else:
+            intensity_file = os.path.join(
+                self.data_dir, "data", subject_id, "brain_aligned.nii.gz")
+            label_file = os.path.join(
+                self.data_dir, "data", subject_id, "seg_coalesced_aligned.nii.gz")
 
         # load and preprocess image
         I = tio.ScalarImage(intensity_file)
@@ -188,11 +188,7 @@ class BrainMRIDataset(Dataset):
         I0, S0 = self.load_subject(subject0)
 
         if self.pairs:
-            if self.atlasreg:
-                I1 = self.atlas
-                S1 = self.atlas_seg
-            else:
-                I1, S1 = self.load_subject(subject1)
+            I1, S1 = self.load_subject(subject1)
 
             # build subject
             if self.loadseg:

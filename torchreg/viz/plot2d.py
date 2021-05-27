@@ -48,9 +48,11 @@ class Fig:
             self.axs = axs
 
         # extend empty dimensions to array
-        if cols == 1:
+        if cols == 1 and rows == 1:
+            self.axs = np.array([[self.axs]])
+        elif cols == 1:
             self.axs = np.array([[ax] for ax in self.axs])
-        if rows == 1:
+        elif rows == 1:
             self.axs = np.array([self.axs])
 
         # hide all axis
@@ -143,7 +145,7 @@ class Fig:
         Parameters:
             row: the row to plot the image
             col: the clolumn to plot the image
-            mask: Tensor of shape C x H x W
+            mask: Tensor of shape 1 x H x W
             contour_class: the class to make a contour of
             width: thickness of contours.
             rgba: color of the contour lines. RGB or RGBA formats
@@ -179,7 +181,7 @@ class Fig:
         return self
 
     def plot_overlay_class_mask(
-        self, row, col, class_mask, num_classes, colors, alpha=0.4
+        self, row, col, class_mask, colors, alpha=0.4
     ):
         """
         imposes a color-coded class_mask onto a plot
@@ -188,26 +190,21 @@ class Fig:
             row: the row to plot the image
             col: the clolumn to plot the image
             class_mask: Tensor of shape 1 x H x W
-            num_classes: number of classes
             colors: list of colors to plot. RGB. or RGBA eg: [(0,0,255)]
             alpha: alpha-visibility of the overlay. Default 0.4
         """
         # one-hot encode the classes
-        class_masks = (
-            torch.nn.functional.one_hot(
-                class_mask[0].long(), num_classes=num_classes)
-            .detach()
-            .cpu()
-            .numpy()
-        )
-        img = np.zeros((*class_masks.shape[:2], 4))
+        class_mask = transforms.image_to_numpy(class_mask)
+        num_classes = class_mask.max() + 1
+        img = np.zeros((*class_mask.shape[:2], 4))
         for c in range(num_classes):
             color = colors[c]
             if color is None:
                 color = (0, 0, 0, 0)
             if len(color) == 3:
                 color = (*color, 255)
-            img[class_masks[:, :, c] == 1] = np.array(color) / 255
+            img[class_mask == c] = np.array(color) / 255
+
         # back to tensor for the next function
         img = torch.tensor(img).permute(-1, 0, 1)
         self.plot_overlay(row, col, img, alpha=alpha)

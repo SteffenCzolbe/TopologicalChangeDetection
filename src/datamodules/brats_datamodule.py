@@ -142,13 +142,6 @@ class BraTSDataset(Dataset):
 
         self.subjects = self.split(subjects, datasplit)
 
-        # load atlas
-        if self.atlasreg:
-            self.atlas = self.preprocess(tio.ScalarImage(os.path.join(
-                self.data_dir, "atlas.nii.gz")))
-            self.atlas_seg = self.preprocess(tio.LabelMap(
-                tensor=torch.zeros(1, 160, 192, 224, dtype=torch.long)))
-
     def split(self, subjects, datasplit):
         # filter by split: 40% for training, 60% for evaluation. We use the same validation and test set here,
         # as we only use it as a baseline and are short of data
@@ -168,10 +161,11 @@ class BraTSDataset(Dataset):
             return self.limitsize if self.limitsize else len(self.subjects)
 
     def get_subject_ids_from_index(self, index):
-        if self.atlasreg or not self.pairs:
-            # register one image to atlas
+        if not self.pairs:
             return self.subjects[index], None
-        if not self.deterministic:
+        elif self.atlasreg:
+            return self.subjects[index], "atlas"
+        elif not self.deterministic:
             # pick two images at random
             N = len(self.subjects)
             idx0 = random.randint(0, N-1)
@@ -186,15 +180,23 @@ class BraTSDataset(Dataset):
             return self.subjects[idx0], self.subjects[idx1]
 
     def load_subject(self, subject_id):
-        intensity_file = os.path.join(self.data_dir, 'preprocessed_data',
-                                      subject_id, "t1_aligned_normalized.nii.gz")
-        label_file = os.path.join(self.data_dir,
-                                  'preprocessed_data', subject_id, "seg_aligned.nii.gz")
+        if subject_id == "atlas":
+            intensity_file = os.path.join(
+                self.data_dir, "atlas.nii.gz")
+        else:
+            intensity_file = os.path.join(self.data_dir, 'preprocessed_data',
+                                          subject_id, "t1_aligned_normalized.nii.gz")
+            label_file = os.path.join(self.data_dir,
+                                      'preprocessed_data', subject_id, "seg_aligned.nii.gz")
 
         # load image
         I = tio.ScalarImage(intensity_file)
         if self.loadseg:
-            S = tio.LabelMap(label_file)
+            if self.atlasreg:
+                S = tio.LabelMap(tensor=torch.zeros(
+                    1, 160, 192, 224, dtype=torch.long))
+            else:
+                S = tio.LabelMap(label_file)
 
         # build subject
         if self.loadseg:
@@ -215,11 +217,7 @@ class BraTSDataset(Dataset):
         I0, S0 = self.load_subject(subject0)
 
         if self.pairs:
-            if self.atlasreg:
-                I1 = self.atlas
-                S1 = self.atlas_seg
-            else:
-                I1, S1 = self.load_subject(subject1)
+            I1, S1 = self.load_subject(subject1)
 
             # build subject
             if self.loadseg:

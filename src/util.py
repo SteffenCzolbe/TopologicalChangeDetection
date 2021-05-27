@@ -175,9 +175,22 @@ def onehot(tensor, num_classes):
 
 
     Returns:
-        Float tensor Bx1xHxW
+        Float tensor BxCxHxW
     """
-    return torch.nn.functional.one_hot(tensor[:, 0], num_classes=num_classes).permute(0, -1, 1, 2)
+    return torch.nn.functional.one_hot(tensor[:, 0], num_classes=num_classes).permute(0, -1, 1, 2, 3)
+
+
+def from_onehot(tensor):
+    """converts a one-hot encoded tensor into a class enumeration tensor
+
+    Args:
+        float tensor: BxCxHxW
+
+
+    Returns:
+        Long tensor Bx1xHxW
+    """
+    return torch.argmax(tensor, dim=1, keepdim=True)
 
 
 def wasserstein(p, q):
