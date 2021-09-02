@@ -19,7 +19,7 @@ class PhCU373DataModule(pl.LightningDataModule):
         self.data_dir = data_dir
         self.batch_size = batch_size
         self.dims = (1, 512, 688, 1)
-        self.class_cnt = 3
+        self.class_cnt = 2
         # labels for visualization
         self.class_names = ["Background", "Cell"]
         # colors for visualization
