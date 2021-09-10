@@ -70,3 +70,36 @@ class ResizeTransform(nn.Module):
 
         # don't do anything if resize is 1
         return x
+
+
+if __name__ == '__main__':
+    import torchreg.settings as settings
+    import torch
+    torch.manual_seed(0)
+    settings.set_ndims(3)
+    # Flow is of of format B x C x D x W x H. C=0 is flow in D-direction
+    flow = torch.tensor([[  # 1st axis displacements
+        [[[0.1], [0.]],
+         [[3.], [3.]]],
+        # 2nd axis displacements
+        [[[0.], [3.]],
+         [[0.], [3.]]],
+        # 3nd axis displacements
+        [[[0.], [0.]],
+         [[0.], [0.]]],
+    ]])
+    print(flow.shape)
+    integrate = FlowIntegration(nsteps=7)
+    integrated_flow = integrate(flow)
+
+    print(flow.squeeze())
+    print(integrated_flow.squeeze())
+
+    print('sampling image -----------------')
+    image = torch.tensor([[[[0., 10, ],
+                            [1, 11, ]]]]).unsqueeze(-1)
+    print("image")
+    print(image.squeeze())
+    transformer = SpatialTransformer()
+    print("sampled image")
+    print(transformer(image, integrated_flow).squeeze())

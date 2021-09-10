@@ -92,7 +92,8 @@ class SpatialTransformer(nn.Module):
         Transforms the src with the flow 
         Parameters:
             src: Tensor (B x C x D x H x W)
-            flow: Tensor  (B x C x D x H x W) of displacement vextors. Channel 0 indicates the flow in the depth dimension.
+            flow: Tensor  (B x C x D x H x W) of displacement vextors. 
+                Channels run along the axis of the tensor. Channel 0 indexes 1st spatial axis, Channel 1 indexes 2nd spatial axis, etc...
             mode: interpolation mode. If not specified, take mode from init function
             padding_mode: 'zeros', 'boarder', 'reflection'
         """
