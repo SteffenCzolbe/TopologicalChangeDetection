@@ -130,13 +130,15 @@ def main(args):
     torchreg.settings.set_ndims(2)
     # we use some brats subjects selected at random in an earlier version of the code,
     # since we had already written the results section for these
+
     brats_subject_ids = ["BraTS20_Training_309", "BraTS20_Training_087",
                          "BraTS20_Training_169", "BraTS20_Training_323", "BraTS20_Training_149"]
     brain_subject_ids = BrainMRIDataModule(
     ).test_dataloader().dataset.subjects  # [:args.sample_cnt]
-    mse_model = util.load_model_from_logdir(config.MODELS["mse"]["path"])
+    mse_model = util.load_model_from_logdir(
+        config.MODELS[config.FULL_MODELS[0]]["path"])
     sem_model = util.load_model_from_logdir(
-        config.MODELS["semantic_loss"]["path"])
+        config.MODELS[config.FULL_MODELS[1]]["path"])
 
     plot(args, config.FULL_MODELS, brain_subject_ids,
          brats_subject_ids, mse_model, sem_model)

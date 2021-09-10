@@ -108,4 +108,5 @@ if __name__ == "__main__":
         "--test", action="store_true", help="Run test-set metrics")
 
     hparams = parser.parse_args()
-    main(hparams)
+    with torch.no_grad():
+        main(hparams)
