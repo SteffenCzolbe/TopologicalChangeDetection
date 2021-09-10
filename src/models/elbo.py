@@ -19,8 +19,11 @@ class ELBO(nn.Module):
 
         if self.full_covar:
             # Cholesky decomposition lower triangular
-            weight = torch.ones(
-                self.data_dims[0], self.data_dims[0]) * init_recon_log_var
+            n = self.data_dims[0]
+            init_covar_matrix = torch.diag(
+                torch.ones(n)) * -init_recon_log_var  # initilize with diagonal precision matrix
+            init_covar_matrix = init_covar_matrix.exp()
+            weight = torch.cholesky(init_covar_matrix)
             self.L_full = torch.nn.parameter.Parameter(
                 weight, requires_grad=True)
 
@@ -39,7 +42,18 @@ class ELBO(nn.Module):
 
     @property
     def L(self):
+        # return lower triangular
         return torch.tril(self.L_full)
+
+    @property
+    def covar(self):
+        # return lower triangular
+        if self.full_covar:
+            L = self.L
+            precision_m = torch.mm(L, L.T)
+            return torch.inverse(precision_m)
+        else:
+            return torch.diag(self.recon_log_var.exp())
 
     @property
     def log_alpha(self):
