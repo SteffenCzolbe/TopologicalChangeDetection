@@ -5,8 +5,7 @@ pdfcrop plots/intro.pdf plots/intro.pdf
 # samples from the model
 python3 -m src.eval.samples --ds1 brain2d --ds2 brats2d --weights ./trained_models/mse --file plots/mse_samples
 python3 -m src.eval.samples --ds1 brain2d --ds2 brats2d --weights ./trained_models/semantic_loss --file plots/semantic_loss_samples
-
-python3 -m src.eval.samples --ds1 brain2d --ds2 brats2d --weights ./lightning_logs/version_1 --file plots/version_1
+python3 -m src.eval.samples --ds1 brain2d --ds2 brats2d --weights ./trained_models/semantic_loss_full_covar --file plots/semantic_loss_full_covar_samples
 
 # overlay plot
 python3 -m src.eval.overlay --weights trained_models/mse --file plots/mse_overlay --range 3 20
@@ -20,6 +19,7 @@ pdfcrop plots/mean_Lsym_semantic_loss_boxplot.pdf plots/mean_Lsym_semantic_loss_
 # tumor detection
 python3 -m src.eval.tumor_detection --model_name  mse --samples 32 --non_cached
 python3 -m src.eval.tumor_detection --model_name  semantic_loss --samples 32 --non_cached
+python3 -m src.eval.tumor_detection --model_name  semantic_loss_full_covar --samples 32 --non_cached
 python3 -m src.eval.tumor_detection --model_name  vae_anomaly_detection_mse --samples 32 --non_cached
 python3 -m src.eval.tumor_detection --model_name  vae_anomaly_detection_semantic_loss --samples 32 --non_cached
 python3 -m src.eval.tumor_detection --model_name  jac_det_model --samples 32 --non_cached

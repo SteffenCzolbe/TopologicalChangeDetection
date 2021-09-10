@@ -27,7 +27,7 @@ mv lightning_logs/version_0 trained_models/semantic_loss/
 cp -r trained_models/semantic_loss/ trained_auxiliary_models/vae_anomaly_detection_semantic # we reuse the same model as a baseline
 
 # semantic loss, full covariance matrix in reconstruction term
-$WRAPPER_FUNC python3 -m src.train_registration --dataset brain2d --channels 64 128 256 --full_covar --semantic_loss trained_auxiliary_models/semantic_loss_feature_extractor/ --recon_weight_init 10 --gpus -1 --accelerator dp --max_epochs 500 --lr_decline_patience 50 --early_stop_patience 80 --batch_size 32 --bnorm --dropout --notest --fast_dev_run $FAST_DEV_RUN
+$WRAPPER_FUNC python3 -m src.train_registration --dataset brain2d --channels 64 128 256 --full_covar --semantic_loss trained_auxiliary_models/semantic_loss_feature_extractor/ --recon_weight_init -11.5 --gpus -1 --accelerator dp --max_epochs 500 --lr_decline_patience 50 --early_stop_patience 80 --batch_size 32 --bnorm --dropout --notest --fast_dev_run $FAST_DEV_RUN
 
 # train the deterministic model for baselines
 $WRAPPER_FUNC python3 -m src.baselines.train_deterministic_registration --dataset brain2d --channels 64 128 256 --regularizer_strengh 0.1 --gpus -1 --accelerator dp --max_epochs 250 --lr_decline_patience 50 --early_stop_patience 80 --batch_size 32 --bnorm --dropout --notest
