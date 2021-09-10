@@ -16,6 +16,12 @@ MODELS = {
                       "color": "tab:blue",
                       "probability_range": (-1960, -500),
                       "p_tumor_probability_range": (0.1, 800)},
+    "semantic_loss_full_covar": {"path": "trained_models/semantic_loss_full_covar",
+                                 "model_cls": RegistrationModel,
+                                 "display_name": "Semantic Loss (Covar)",
+                                 "color": "skyblue",
+                                 "probability_range": (-1850, -1000),
+                                 "p_tumor_probability_range": (0.1, 350)},
     "jac_det_model": {"path": "trained_auxiliary_models/jac_det_model",
                       "model_cls": JacDetModel,
                       "display_name": "Jac. Det.",
@@ -44,5 +50,5 @@ MODELS = {
 FULL_MODELS = ["mse", "semantic_loss"]  # only full models of our method
 # all models, including baselines
 #
-ALL_MODELS = ["semantic_loss", "mse", "li_wyatt_model",
+ALL_MODELS = ["semantic_loss", "semantic_loss_full_covar", "mse", "li_wyatt_model",
               "jac_det_model", "vae_anomaly_detection", "segmentation_model"]
