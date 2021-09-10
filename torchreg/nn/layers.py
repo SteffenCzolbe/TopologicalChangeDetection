@@ -120,7 +120,7 @@ class SpatialTransformer(nn.Module):
             # remove previously added expansion
             sampled = sampled[..., [1]]
 
-        # convert back to origonal dtype
+        # convert back to original dtype
         sampled = sampled.to(dtype)
 
         return sampled
