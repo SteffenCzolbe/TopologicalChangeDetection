@@ -150,6 +150,9 @@ class RegistrationModel(pl.LightningModule):
 
         with torch.no_grad():
             jacdet = self.jacobian_determinant(mu)
+            covar = self.elbo.covar
+            covar_diagonal = torch.diag(covar)
+            covar_off_diagonal = (covar - torch.diag(covar_diagonal))
 
         logs = {
             "loss": loss,
@@ -158,9 +161,10 @@ class RegistrationModel(pl.LightningModule):
             "mean_latent_log_var": log_var.mean(),
             "prior_log_alpha": self.elbo.log_alpha.mean(),
             "prior_log_beta": self.elbo.log_beta.mean(),
-            "recon_log_var": self.elbo.recon_log_var.mean(),
             "transformation_smoothness": -jacdet.var(),
             "transformation_folding": (jacdet <= 0).float().mean(),
+            "covar_diagonal": covar_diagonal.mean(),
+            "covar_off_diagonal": covar_off_diagonal.mean(),
         }
 
         if S0 is not None:
