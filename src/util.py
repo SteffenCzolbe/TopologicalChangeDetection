@@ -24,13 +24,14 @@ def get_supported_datamodules():
     from src.datamodules.mnist_datamodule import MnistDataModule
     from src.datamodules.brainmri_datamodule import BrainMRIDataModule
     from src.datamodules.brats_datamodule import BraTSDataModule
+    from src.datamodules.plateletem_datamodule import PlateletemDataModule
 
-    supported_datamodels = {"mnist": (MnistDataModule, {}),
-                            "brain": (BrainMRIDataModule, {'volumetric': True, 'atlasreg': False}),
+    supported_datamodels = {"brain": (BrainMRIDataModule, {'volumetric': True, 'atlasreg': False}),
                             "brain2d": (BrainMRIDataModule, {'volumetric': False, 'atlasreg': False}),
                             "brainatlas": (BrainMRIDataModule, {'volumetric': True, 'atlasreg': True}),
                             "brain2datlas": (BrainMRIDataModule, {'volumetric': False, 'atlasreg': True}),
-                            "brats2d": (BraTSDataModule, {'volumetric': False, 'atlasreg': False}), }
+                            "brats2d": (BraTSDataModule, {'volumetric': False, 'atlasreg': False}),
+                            "platelet-em": (PlateletemDataModule, {})}
 
     return supported_datamodels
 
