@@ -131,13 +131,13 @@ class BrainMRIDataset(Dataset):
         # gather list of files
         self.image_nii_files = list(
             map(lambda s: os.path.join(self.data_dir, "data",
-                                       s, "brain_aligned.nii.gz"), subjects)
+                                       s, "brain_aligned.nii.gz"), self.subjects)
         )
         self.image_nii_label_files = list(
             map(
                 lambda s: os.path.join(
                     self.data_dir, "data", s, "seg_coalesced_aligned.nii.gz"),
-                subjects,
+                self.subjects,
             )
         )
 
@@ -216,8 +216,12 @@ class BrainMRIDataset(Dataset):
 
 if __name__ == '__main__':
     batchsize = 4
-    dm = BrainMRIDataModule(pairs=True, atlasreg=True, volumetric=False,
-                            loadseg=True, batch_size=batchsize)
+    dm = BrainMRIDataModule(pairs=True, atlasreg=True,
+                            volumetric=False, batch_size=batchsize)
+
+    print(dm.train_dataloader().dataset.__len__())
+    print(dm.val_dataloader().dataset.__len__())
+    print(dm.test_dataloader().dataset.__len__())
 
     # load image
     dataloader = dm.train_dataloader()
