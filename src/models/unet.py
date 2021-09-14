@@ -112,13 +112,13 @@ class Stage(nn.Module):
 
         # build stage
         layers = []
-        if bnorm:
-            layers.append(tnn.BatchNorm(in_channels))
         layers.append(tnn.Conv(in_channels, out_channels, ksize, stride, 1))
         layers.append(nn.LeakyReLU(0.2))
         for i in range(1, conv_layers):
             layers.append(tnn.Conv(out_channels, out_channels, 3, 1, 1))
             layers.append(nn.LeakyReLU(0.2))
+        if bnorm:
+            layers.append(tnn.BatchNorm(out_channels))
         if dropout:
             layers.append(tnn.Dropout())
 
