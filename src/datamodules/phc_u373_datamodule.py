@@ -7,13 +7,14 @@ from .tif_image_stack_dataset import TifImageStackDataset
 
 
 class PhCU373DataModule(pl.LightningDataModule):
-    def __init__(self, pairs=True, data_dir: str = "./data/PhC-U373/", batch_size: int = 32):
+    def __init__(self, pairs=True, data_dir: str = "./data/PhC-U373/", batch_size: int = 32, **kwargs):
         """The Brain-MRI datamodule, combining the train, validation and test set.
 
         Args:
             pairs (bool, optional): Set True to return image pairs. Defaults to True.
             data_dir (str, optional): Data directory. Defaults to "../data/platelet_em_reduced/".
             batch_size (int, optional): Batch size. Defaults to 32.
+            kwargs: other args are voided, required for compatibility with Brain-Datamodule interface
         """
         super().__init__()
         self.data_dir = data_dir
