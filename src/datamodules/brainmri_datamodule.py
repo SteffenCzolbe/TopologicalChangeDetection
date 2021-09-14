@@ -41,10 +41,15 @@ class BrainMRIDataModule(pl.LightningDataModule):
             raise Exception('BrainMRI data not found.')
 
     def train_dataloader(self, shuffle=False):
+        augmentations = tio.Compose([
+            tio.transforms.RandomAffine(degrees=(-10, 10, -10, 10, 0, 0),
+                                        scales=(0.95, 1.05, 0.95, 1.05, 1., 1.)),
+        ])
         dataset = BrainMRIDataset(
             self.data_dir, "train", pairs=self.pairs, atlasreg=self.atlasreg,
             loadseg=self.load_train_seg, volumetric=self.volumetric,
             limitsize=4000, deterministic=False,
+            augmentations=augmentations
         )
         return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=shuffle)
 
@@ -71,7 +76,7 @@ def take_slice_from_tensor(tensor):
 
 
 class BrainMRIDataset(Dataset):
-    def __init__(self, data_dir, datasplit, pairs, atlasreg, loadseg, volumetric=True, limitsize=None, deterministic=True, control_only=True):
+    def __init__(self, data_dir, datasplit, pairs, atlasreg, loadseg, volumetric=True, limitsize=None, deterministic=True, control_only=True, augmentations=None):
         """Brain MRI dataset
 
         Args:
@@ -84,6 +89,7 @@ class BrainMRIDataset(Dataset):
             limitsize ([type]): artifical limit on size of dataset, only applicable if atlasreg=False
             deterministic (bool, optional): Set to obtain deterministic behaviour. Only applicable if atlasreg=False. Defaults to True.
             control_only (bool, optional): Set to only use images from the healthy control group. Defaults to True
+            augmentations (tio.Transform, optional): Data-augmentation transforms
         """
         self.data_dir = data_dir
         self.datasplit = datasplit
@@ -93,6 +99,7 @@ class BrainMRIDataset(Dataset):
         self.limitsize = limitsize
         self.deterministic = deterministic
         self.control_only = control_only
+        self.augmentations = augmentations
 
         # preprocessing, performed before
         transforms = []
@@ -210,6 +217,10 @@ class BrainMRIDataset(Dataset):
                 subject = tio.Subject(I=I0, S=S0, subject_id=subject0)
             else:
                 subject = tio.Subject(I=I0, subject_id=subject0)
+
+        # augment
+        if self.augmentations:
+            subject = self.augmentations(subject)
 
         return subject
 
