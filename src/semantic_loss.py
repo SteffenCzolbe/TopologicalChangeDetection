@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 import torchreg
-from src.models.unet import UNet
+from src.models.segnet import SegNet
 from typing import Dict, Optional
 
 
@@ -21,11 +21,10 @@ class SemanticLossModel(pl.LightningModule):
 
         # set net
         self.ndims = torchreg.settings.get_ndims()
-        self.net = UNet(
+        self.net = SegNet(
             in_channels=self.hparams.data_dims[0],
-            enc_feat=self.hparams.channels,
-            dec_feat=self.hparams.channels[::-
-                                           1][:-1] + [self.hparams.data_classes],
+            out_channels=self.hparams.data_classes,
+            features=self.hparams.channels,
             conv_layers_per_stage=self.hparams.conv_layers_per_stage,
             bnorm=self.hparams.bnorm,
             dropout=self.hparams.dropout,
