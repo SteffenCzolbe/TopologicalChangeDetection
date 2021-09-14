@@ -51,7 +51,8 @@ class RegistrationModel(pl.LightningModule):
         self.transformer = tnn.SpatialTransformer()
 
     def configure_optimizers(self):
-        opt = torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
+        opt = torch.optim.Adam(
+            self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
         sched = torch.optim.lr_scheduler.ReduceLROnPlateau(
             opt,
             "min",
@@ -233,6 +234,9 @@ class RegistrationModel(pl.LightningModule):
         )
         parser.add_argument(
             "--lr_decline_patience", type=int, default=10, help="LR halving after x epochs of no improvement. Default: 10"
+        )
+        parser.add_argument(
+            "--weight_decay", type=float, default=0., help="Weight decay factor. Default 0."
         )
         parser.add_argument(
             "--conv_layers_per_stage", type=int, default=1, help="Convolutional layer sper network stage. Default: 2"
