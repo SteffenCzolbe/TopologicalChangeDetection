@@ -79,17 +79,17 @@ if __name__ == '__main__':
     settings.set_ndims(3)
     # Flow is of of format B x C x D x W x H. C=0 is flow in D-direction
     flow = torch.tensor([[  # 1st axis displacements
-        [[[0.1], [0.]],
-         [[3.], [3.]]],
+        [[[0.1], [0.0]],
+         [[6.], [6.]]],
         # 2nd axis displacements
-        [[[0.], [3.]],
+        [[[0.1], [3.]],
          [[0.], [3.]]],
         # 3nd axis displacements
         [[[0.], [0.]],
          [[0.], [0.]]],
     ]])
     print(flow.shape)
-    integrate = FlowIntegration(nsteps=7)
+    integrate = FlowIntegration(nsteps=2)
     integrated_flow = integrate(flow)
 
     print(flow.squeeze())
