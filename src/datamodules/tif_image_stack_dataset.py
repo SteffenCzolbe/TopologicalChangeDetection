@@ -12,7 +12,7 @@ class TifImageStackDataset(Dataset):
             tif_seg_file (str): path to the segmentation class file
             pairs (bool): should pairs be returned?
             min_slice (int, optional): Slice from. Set to none for all images. Defaults to None.
-            max_slice (int, optional): Slice to. Set to none for all images. Defaults to None.
+            max_slice (int, optional): Slice to. Set to none for all images. Inclusive range. Defaults to None.
             slice_pair_max_z_diff (int): max z-diff beween slice pairs
             augmentations (tio.Transform, optional): Data-augmentation transforms
         """
@@ -20,7 +20,7 @@ class TifImageStackDataset(Dataset):
         self.intensity_stack = tio.ScalarImage(tif_intensity_file)
         self.segmentation_stack = tio.LabelMap(tif_seg_file)
         self.min_slice = min_slice or 0
-        self.max_slice = max_slice or self.intensity_stack['data'].shape[-1]
+        self.max_slice = max_slice or self.intensity_stack['data'].shape[-1] - 1
         self.pairs = pairs
         self.max_z_diff = slice_pair_max_z_diff
         self.augmentations = augmentations
