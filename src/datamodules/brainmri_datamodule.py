@@ -71,7 +71,7 @@ def take_slice_from_tensor(tensor):
 
 
 class BrainMRIDataset(Dataset):
-    def __init__(self, data_dir, datasplit, pairs, atlasreg, loadseg, volumetric=True, limitsize=None, deterministic=True):
+    def __init__(self, data_dir, datasplit, pairs, atlasreg, loadseg, volumetric=True, limitsize=None, deterministic=True, control_only=True):
         """Brain MRI dataset
 
         Args:
@@ -83,6 +83,7 @@ class BrainMRIDataset(Dataset):
             volumetric (bool, optional): Set for 3d images. Defaults to True.
             limitsize ([type]): artifical limit on size of dataset, only applicable if atlasreg=False
             deterministic (bool, optional): Set to obtain deterministic behaviour. Only applicable if atlasreg=False. Defaults to True.
+            control_only (bool, optional): Set to only use images from the healthy control group. Defaults to True
         """
         self.data_dir = data_dir
         self.datasplit = datasplit
@@ -91,6 +92,7 @@ class BrainMRIDataset(Dataset):
         self.loadseg = loadseg
         self.limitsize = limitsize
         self.deterministic = deterministic
+        self.control_only = control_only
 
         # preprocessing, performed before
         transforms = []
@@ -112,13 +114,19 @@ class BrainMRIDataset(Dataset):
                 intensity_scale_transform,
                 to_long_transform,
             ])
-
         # load image paths from csv
         df = pd.read_csv(os.path.join(
             self.data_dir, "metadata.csv"), dtype=str)
         df.set_index("subject_id", inplace=True)
-        subjects = list(df[df["SPLIT"] == datasplit].index)
-        self.subjects = subjects
+
+        # filter for dataset
+        df = df[df["SPLIT"] == datasplit]
+
+        # filter for healthy control
+        if self.control_only:
+            df = df[df["diagnosis"] == "Cognitively normal"]
+
+        self.subjects = list(df.index)
 
         # gather list of files
         self.image_nii_files = list(
