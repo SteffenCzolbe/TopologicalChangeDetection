@@ -34,10 +34,11 @@ class SegNet(nn.Module):
         layers = [
             tnn.Conv(self.unet.output_channels[-1], out_channels * 2, 3, 1, 1),
             nn.LeakyReLU(0.2),
-            tnn.Conv(out_channels * 2, out_channels, 3, 1, 1),
+            # last layer with kernel size 1, as original U-Net
+            tnn.Conv(out_channels * 2, out_channels, 1, 1, 1),
         ]
-        self.classifier = nn.Sequential(*layers)
+        self.head = nn.Sequential(*layers)
 
     def forward(self, x):
         feats = self.unet(x)
-        return self.classifier(feats[-1])
+        return self.head(feats[-1])
