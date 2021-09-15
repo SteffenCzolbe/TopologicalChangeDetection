@@ -29,13 +29,13 @@ class TifImageStackDataset(Dataset):
         self.slice_idxs = self.get_slice_idxs()
         self.dynamic_range = self.get_dynamic_range_of_dtype(
             self.intensity_stack['data'].dtype)
-        image_intensity_scale_transform = tio.Lambda(
+        self.image_intensity_scale_transform = tio.Lambda(
             lambda t: t.float() / 2**self.dynamic_range, types_to_apply=[tio.INTENSITY])
-        segmentation_to_long_transform = tio.Lambda(
+        self.segmentation_to_long_transform = tio.Lambda(
             lambda t: t.long(), types_to_apply=[tio.LABEL])
         self.preprocess = tio.Compose([
-            image_intensity_scale_transform,
-            segmentation_to_long_transform,
+            self.image_intensity_scale_transform,
+            self.segmentation_to_long_transform,
         ])
 
     @staticmethod
@@ -108,5 +108,7 @@ class TifImageStackDataset(Dataset):
         # apply data augmentation
         if self.augmentations:
             subject = self.augmentations(subject)
+            # map labels back to long
+            subject = self.segmentation_to_long_transform(subject)
 
         return subject

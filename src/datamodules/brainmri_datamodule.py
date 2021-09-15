@@ -105,21 +105,21 @@ class BrainMRIDataset(Dataset):
         transforms = []
         to_2d_transform = tio.Lambda(take_slice_from_tensor,
                                      types_to_apply=[tio.INTENSITY, tio.LABEL])
-        intensity_scale_transform = tio.Lambda(
+        self.intensity_scale_transform = tio.Lambda(
             lambda t: t.float() / 128, types_to_apply=[tio.INTENSITY])
-        to_long_transform = tio.Lambda(
+        self.to_long_transform = tio.Lambda(
             lambda t: t.long(), types_to_apply=[tio.LABEL])
 
         if volumetric:
             self.preprocess = tio.Compose([
-                intensity_scale_transform,
-                to_long_transform,
+                self.intensity_scale_transform,
+                self.to_long_transform,
             ])
         else:
             self.preprocess = tio.Compose([
                 to_2d_transform,
-                intensity_scale_transform,
-                to_long_transform,
+                self.intensity_scale_transform,
+                self.to_long_transform,
             ])
         # load image paths from csv
         df = pd.read_csv(os.path.join(
@@ -221,6 +221,8 @@ class BrainMRIDataset(Dataset):
         # augment
         if self.augmentations:
             subject = self.augmentations(subject)
+            # turn labels back to int
+            subject = self.to_long_transform(subject)
 
         return subject
 
@@ -238,20 +240,28 @@ if __name__ == '__main__':
     dataloader = dm.train_dataloader()
     batch = next(iter(dataloader))
     image = batch['I0']
-    print(batch['S0']['data'].unique())
+    seg = batch['S0']
+    print(seg['data'].unique())
+    print(seg['data'].dtype)
 
     print('shape: ', image["data"][0].shape)
 
     for i in range(batchsize):
         # save output
-        output = tio.ScalarImage(tensor=image["data"][i].detach(),
-                                 affine=image["affine"][i],
-                                 check_nans=True)
+        output_img = tio.ScalarImage(tensor=image["data"][i].detach(),
+                                     affine=image["affine"][i],
+                                     check_nans=True)
+        output_seg = tio.ScalarImage(tensor=seg["data"][i].detach(),
+                                     affine=seg["affine"][i],
+                                     check_nans=True)
 
-        if output.is_2d():
-            output['data'] = output['data'] * 128
-            output.as_pil().save(f"test{i}.png")
+        if output_img.is_2d():
+            output_img['data'] = output_img['data'] * 128
+            output_img.as_pil().save(f"test{i}.png")
+
+            output_seg['data'] = output_seg['data'] * 5
+            output_seg.as_pil().save(f"test{i}_seg.png")
             print('saved 2d')
         else:
-            output.save(f"test{i}.nii.gz")
+            output_img.save(f"test{i}.nii.gz")
             print('saved 3d')
