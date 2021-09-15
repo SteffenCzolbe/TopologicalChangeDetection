@@ -50,7 +50,7 @@ class PlateletemDataModule(pl.LightningDataModule):
         segmentation_file = os.path.join(
             self.data_dir, "labels-class", "24-class.tif")
         dataset = TifImageStackDataset(intensity_file, segmentation_file,
-                                       pairs=self.pairs, min_slice=0, max_slice=12, slice_pair_max_z_diff=1)
+                                       pairs=self.pairs, min_slice=0, max_slice=11, slice_pair_max_z_diff=1)
         return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=shuffle)
 
     def test_dataloader(self, shuffle=False):
@@ -58,7 +58,7 @@ class PlateletemDataModule(pl.LightningDataModule):
         segmentation_file = os.path.join(
             self.data_dir, "labels-class", "24-class.tif")
         dataset = TifImageStackDataset(intensity_file, segmentation_file,
-                                       pairs=self.pairs, min_slice=13, max_slice=24, slice_pair_max_z_diff=1)
+                                       pairs=self.pairs, min_slice=12, max_slice=23, slice_pair_max_z_diff=1)
         return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=shuffle)
 
 
