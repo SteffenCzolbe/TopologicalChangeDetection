@@ -109,9 +109,6 @@ class SemanticLossModel(pl.LightningModule):
         # predict
         y_pred, y_pred_onehot, y_pred_raw = self.forward(x)
 
-        print(y_true.dtype)
-        print(y_true.shape)
-
         loss = self.cross_entropy_loss(y_pred_raw, y_true.squeeze(1))
         dice_overlap = self.dice_overlap(y_true, y_pred)
         accuracy = torch.mean((y_true == y_pred).float())
