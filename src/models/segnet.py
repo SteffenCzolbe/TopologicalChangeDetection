@@ -35,7 +35,7 @@ class SegNet(nn.Module):
             tnn.Conv(self.unet.output_channels[-1], out_channels * 2, 3, 1, 1),
             nn.LeakyReLU(0.2),
             # last layer with kernel size 1, as original U-Net
-            tnn.Conv(out_channels * 2, out_channels, 1, 1, 1),
+            tnn.Conv(out_channels * 2, out_channels, 1, 1, 0),
         ]
         self.head = nn.Sequential(*layers)
 

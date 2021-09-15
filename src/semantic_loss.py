@@ -62,9 +62,7 @@ class SemanticLossModel(pl.LightningModule):
 
     def forward(self, x):
         # run model
-        feat = self.net(x)
-        # take last feature activation
-        y_pred_raw = feat[-1]
+        y_pred_raw = self.net(x)
         # softmax
         y_pred_onehot = F.softmax(y_pred_raw, dim=1)
         # class prediction
@@ -110,6 +108,9 @@ class SemanticLossModel(pl.LightningModule):
     def step(self, x: torch.Tensor, y_true: torch.Tensor) -> Dict[str, float]:
         # predict
         y_pred, y_pred_onehot, y_pred_raw = self.forward(x)
+
+        print(y_true.dtype)
+        print(y_true.shape)
 
         loss = self.cross_entropy_loss(y_pred_raw, y_true.squeeze(1))
         dice_overlap = self.dice_overlap(y_true, y_pred)
