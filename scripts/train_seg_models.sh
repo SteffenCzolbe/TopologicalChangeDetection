@@ -18,6 +18,7 @@ $WRAPPER_FUNC python3 -m src.train_semantic_loss --dataset brain2d --channels 32
 $WRAPPER_FUNC python3 -m src.train_semantic_loss --dataset brain2d --channels 32 64 64 --gpus -1 --accelerator dp --max_epochs 5000 --lr_decline_patience 50 --early_stop_patience 80 --batch_size 16 --bnorm --weight_decay 0.05 --notest
 $WRAPPER_FUNC python3 -m src.train_semantic_loss --dataset brain2d --channels 32 64 64 --gpus -1 --accelerator dp --max_epochs 5000 --lr_decline_patience 50 --early_stop_patience 80 --batch_size 16 --bnorm --weight_decay 0.1 --notest
 $WRAPPER_FUNC python3 -m src.train_semantic_loss --dataset brain2d --channels 32 64 64 --gpus -1 --accelerator dp --max_epochs 5000 --lr_decline_patience 50 --early_stop_patience 80 --batch_size 16 --bnorm --weight_decay 0.5 --notest
+$WRAPPER_FUNC python3 -m src.train_semantic_loss --dataset brain2d --channels 32 64 64 --gpus -1 --accelerator dp --max_epochs 5000 --lr_decline_patience 50 --early_stop_patience 80 --batch_size 16 --bnorm --weight_decay 1 --notest
 
 
 
