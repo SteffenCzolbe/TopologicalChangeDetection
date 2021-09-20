@@ -52,6 +52,8 @@ class ELBO(nn.Module):
             L = self.L
             precision_m = torch.mm(L, L.T)
             return torch.inverse(precision_m)
+        elif self.recon_log_var.shape == torch.Size([]):
+            return self.recon_log_var.exp()
         else:
             return torch.diag(self.recon_log_var.exp())
 
@@ -70,7 +72,7 @@ class ELBO(nn.Module):
             model_checkpoint)
         util.freeze_model(self.semantic_loss_model)
         # adjust image channels for augmented data
-        channel_cnt = sum(self.semantic_loss_model.net.enc_feat)
+        channel_cnt = sum(self.semantic_loss_model.net.unet.enc_feat)
         self.data_dims = (channel_cnt, *self.data_dims[1:])
 
     def loss(self, mu, log_var, transform, I0, I1, reduction='mean'):

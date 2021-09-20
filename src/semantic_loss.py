@@ -75,7 +75,7 @@ class SemanticLossModel(pl.LightningModule):
         """
         self.eval()
         feat = []
-        for stage in self.net.encoder:
+        for stage in self.net.unet.encoder:
             x = stage(x)
             feat.append(x)
         return feat
@@ -94,7 +94,7 @@ class SemanticLossModel(pl.LightningModule):
                      for feat in feats]
         else:
             feats = [F.interpolate(feat, size=(H, W, D), mode='trilinear', align_corners=False)
-                     for feat in feats]  # TODO: cubic interpolation for 2d data
+                     for feat in feats]
 
         # stack along channel dimension
         feats = torch.cat(feats, dim=1)

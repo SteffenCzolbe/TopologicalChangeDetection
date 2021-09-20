@@ -152,8 +152,10 @@ class RegistrationModel(pl.LightningModule):
         with torch.no_grad():
             jacdet = self.jacobian_determinant(mu)
             covar = self.elbo.covar
-            covar_diagonal = torch.diag(covar)
-            covar_off_diagonal = (covar - torch.diag(covar_diagonal))
+            covar_diagonal = torch.diag(
+                covar) if covar.shape != torch.Size([]) else covar
+            covar_off_diagonal = (covar - torch.diag(covar_diagonal)
+                                  ) if covar.shape != torch.Size([]) else torch.tensor(0.)
 
         logs = {
             "loss": loss,
@@ -239,7 +241,7 @@ class RegistrationModel(pl.LightningModule):
             "--weight_decay", type=float, default=0., help="Weight decay factor. Default 0."
         )
         parser.add_argument(
-            "--conv_layers_per_stage", type=int, default=1, help="Convolutional layer sper network stage. Default: 2"
+            "--conv_layers_per_stage", type=int, default=1, help="Convolutional layer sper network stage. Default: 1"
         )
 
         return parent_parser
