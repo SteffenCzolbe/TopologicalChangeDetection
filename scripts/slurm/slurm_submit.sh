@@ -60,7 +60,7 @@ case $DATASET in
     ;;
     platelet-em)
     TIME=1-00:00:00
-    GRES=gpu:titanx:1
+    GRES=gpu:titanrtx:1
     DATASET_SHORT=pl
     ;;
     phc-u373)
