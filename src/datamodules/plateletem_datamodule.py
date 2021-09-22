@@ -1,13 +1,14 @@
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, ConcatDataset
 import pytorch_lightning as pl
 import torchio as tio
 import os
 from .tif_image_stack_dataset import TifImageStackDataset
+import glob
 
 
 class PlateletemDataModule(pl.LightningDataModule):
-    def __init__(self, pairs=True, data_dir: str = "./data/platelet_em_reduced/", batch_size: int = 32, **kwargs):
+    def __init__(self, pairs=True, data_dir: str = "./data/platelet_em/", batch_size: int = 32, **kwargs):
         """The Brain-MRI datamodule, combining the train, validation and test set.
 
         Args:
@@ -19,7 +20,7 @@ class PlateletemDataModule(pl.LightningDataModule):
         super().__init__()
         self.data_dir = data_dir
         self.batch_size = batch_size
-        self.dims = (1, 800, 800, 1)
+        self.dims = (1, 256, 256, 1)
         self.class_cnt = 3
         # labels for visualization
         self.class_names = ["Background", "Cytoplasm", "Organelle"]
@@ -30,35 +31,42 @@ class PlateletemDataModule(pl.LightningDataModule):
 
     def prepare_data(self):
         # check if data available
-        if not os.path.isdir(os.path.join(self.data_dir, "images")):
+        if not os.path.isdir(os.path.join(self.data_dir, "train")):
             raise Exception('Platelet-EM data not found.')
 
     def train_dataloader(self, shuffle=False):
-        intensity_file = os.path.join(self.data_dir, "images", "50-images.tif")
-        segmentation_file = os.path.join(
-            self.data_dir, "labels-class", "50-class.tif")
-        augmentations = tio.Compose([
-            tio.transforms.RandomFlip(axes=(0, 1)),
-            tio.transforms.RandomAffine(),
-        ])
-        dataset = TifImageStackDataset(intensity_file, segmentation_file,
-                                       pairs=self.pairs, slice_pair_max_z_diff=2, augmentations=augmentations)
-        return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=shuffle)
+        return self.get_dataloader("train", shuffle)
 
     def val_dataloader(self, shuffle=False):
-        intensity_file = os.path.join(self.data_dir, "images", "24-images.tif")
-        segmentation_file = os.path.join(
-            self.data_dir, "labels-class", "24-class.tif")
-        dataset = TifImageStackDataset(intensity_file, segmentation_file,
-                                       pairs=self.pairs, min_slice=0, max_slice=11, slice_pair_max_z_diff=1)
-        return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=shuffle)
+        return self.get_dataloader("val", shuffle)
 
     def test_dataloader(self, shuffle=False):
-        intensity_file = os.path.join(self.data_dir, "images", "24-images.tif")
-        segmentation_file = os.path.join(
-            self.data_dir, "labels-class", "24-class.tif")
-        dataset = TifImageStackDataset(intensity_file, segmentation_file,
-                                       pairs=self.pairs, min_slice=12, max_slice=23, slice_pair_max_z_diff=1)
+        return self.get_dataloader("test", shuffle)
+
+    def get_dataloader(self, split: str, shuffle: bool):
+        if split == "train":
+            augmentations = tio.Compose([
+                tio.transforms.RandomFlip(axes=(0, 1)),
+                tio.transforms.RandomAffine(),
+            ])
+        else:
+            augmentations = None
+
+        # read file paths
+        intensity_files = sorted(glob.glob(os.path.join(
+            self.data_dir, split, "image", "*.tif")))
+        label_files = sorted(glob.glob(os.path.join(
+            self.data_dir, split, "label", "*.tif")))
+
+        # load datasets
+        datasets = []
+        for intensity_file, label_file in zip(intensity_files, label_files):
+            dataset = TifImageStackDataset(intensity_file, label_file,
+                                           pairs=self.pairs, slice_pair_max_z_diff=2 if split == "train" else 1, augmentations=augmentations)
+            datasets.append(dataset)
+
+        # concatinate individual TIF stack datasets
+        dataset = ConcatDataset(datasets)
         return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=shuffle)
 
 
@@ -67,7 +75,7 @@ if __name__ == '__main__':
     dm = PlateletemDataModule(pairs=True, batch_size=batchsize)
 
     # load a batch (manually, normally pytorch lightning does this for us)
-    dataloader = dm.train_dataloader()
+    dataloader = dm.train_dataloader(shuffle=True)
     print('dataset length:', len(dataloader.dataset))
 
     batch = next(iter(dataloader))
