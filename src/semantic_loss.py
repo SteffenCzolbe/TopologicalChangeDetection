@@ -90,10 +90,10 @@ class SemanticLossModel(pl.LightningModule):
 
         # expand deeper layers to same dimensionality as input
         if D == 1:
-            feats = [F.interpolate(feat.squeeze(-1), size=(H, W), mode='bicubic', align_corners=False).unsqueeze(-1)
+            feats = [F.interpolate(feat.squeeze(-1), size=(H, W), mode='bicubic', align_corners=True).unsqueeze(-1)
                      for feat in feats]
         else:
-            feats = [F.interpolate(feat, size=(H, W, D), mode='trilinear', align_corners=False)
+            feats = [F.interpolate(feat, size=(H, W, D), mode='trilinear', align_corners=True)
                      for feat in feats]
 
         # stack along channel dimension

@@ -60,13 +60,15 @@ class ResizeTransform(nn.Module):
     def forward(self, x):
         if self.factor < 1:
             # resize first to save memory
-            x = nnf.interpolate(x, scale_factor=self.factor, mode=self.mode)
+            x = nnf.interpolate(x, scale_factor=self.factor,
+                                mode=self.mode, align_corners=True)
             x = self.factor * x
 
         elif self.factor > 1:
             # multiply first to save memory
             x = self.factor * x
-            x = nnf.interpolate(x, scale_factor=self.factor, mode=self.mode)
+            x = nnf.interpolate(x, scale_factor=self.factor,
+                                mode=self.mode, align_corners=True)
 
         # don't do anything if resize is 1
         return x
