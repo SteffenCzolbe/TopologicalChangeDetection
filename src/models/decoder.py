@@ -7,7 +7,7 @@ class FixedDecoder(nn.Module):
         super().__init__()
         self.transformer = tnn.SpatialTransformer()
         self.integrate = tnn.FlowIntegration(
-            nsteps=integration_steps) if integration_steps else None
+            nsteps=integration_steps, downsize=2) if integration_steps else None
 
     def forward(self, flow_field, I, seg=None):
         transform = self.get_transform(flow_field, inverse=False)
