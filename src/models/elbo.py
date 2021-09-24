@@ -1,9 +1,11 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as nnf
 import pytorch_lightning as pl
 import torchreg
 from src.semantic_loss import SemanticLossModel
 import src.util as util
+from typing import List
 
 
 class ELBO(nn.Module):
@@ -82,46 +84,77 @@ class ELBO(nn.Module):
         loss = recon_loss + kl_loss
         return loss, recon_loss, kl_loss
 
+    def _transform_pyramid(self, pyramid, transform):
+        """applies a transformation to a pyramid of features
+
+        Args:
+            pyramid ([type]): [description]
+            transform ([type]): [description]
+        """
+        _, H, W, D = self.data_dims
+        transformed_pyramid = []
+        for features in pyramid:
+            # scale fullsize transform down to smaller images
+            scale_factor = features.shape[2] / H
+            if self.ndims == 2:
+                scaled_transform = nnf.interpolate(transform.squeeze(-1), scale_factor=scale_factor,
+                                                   mode="bilinear", align_corners=True).unsqueeze(-1)
+            else:
+                scaled_transform = nnf.interpolate(transform, scale_factor=scale_factor,
+                                                   mode="trilinear", align_corners=True)
+            # scale transform vector length
+            scaled_transform *= scale_factor
+            transformed_pyramid.append(
+                self.transformer(features, scaled_transform))
+        return transformed_pyramid
+
+    def _pyramid_to_fullsize(self, pyramid: List[torch.Tensor]) -> torch.Tensor:
+        """Transforms a pyramid to a fullsize image.
+        Scales values to keep channel-norm identical
+
+        Args:
+            pyramid ([type]): [description]
+        """
+        _, H, W, D = self.data_dims
+
+        resized_pyramid = []
+        for features in pyramid:
+            # scale smaller pyramid features up to larger image size
+            scale_factor = H / features.shape[2]
+            volume_scale_factor = scale_factor**2 if self.ndims == 2 else scale_factor**3
+            if self.ndims == 2:
+                fullsize_features = nnf.interpolate(features.squeeze(-1), scale_factor=scale_factor,
+                                                    mode="bilinear", align_corners=True).unsqueeze(-1)
+            else:
+                fullsize_features = nnf.interpolate(features, scale_factor=scale_factor,
+                                                    mode="trilinear", align_corners=True)
+            # re-scale normed values
+            fullsize_features /= volume_scale_factor
+            resized_pyramid.append(fullsize_features)
+
+        # stack along channel dimension
+        img = torch.cat(resized_pyramid, dim=1)
+        return img
+
     def recon_loss(self, I0, I1, transform, reduction='mean'):
         # we implement the term pixel-whise, and mean over pixels if specified by the reduction
         # the scalar term is devided by factor n (canceled out), as it will be expanded (broadcasted) to size n during summation of the loss terms
         n = torch.prod(torch.tensor(self.data_dims[1:]))  # n pixels
-        D = self.data_dims[0]  # D channels
 
+        # Turn images into optional feature pyramids
         if self.semantic_loss:
-            I0 = self.semantic_loss_model.augment_image(I0)
-            I1 = self.semantic_loss_model.augment_image(I1)
+            I0_pyramid = self.semantic_loss_model.extract_features(I0)
+            I1_pyramid = self.semantic_loss_model.extract_features(I1)
+        else:
+            I0_pyramid = [I0]
+            I1_pyramid = [I1]
 
-        I01 = self.transformer(I0, transform)
+        I01_pyramid = self._transform_pyramid(I0_pyramid, transform)
 
         if self.full_covar:
-            # full covar matrix, learned via cholensky decomposition \Sigma^-1 = L L^T
-
-            # calculate ||v^T L||^2
-            diff = I1 - I01
-            diff = diff.permute(0, 2, 3, 4, 1).unsqueeze(
-                4)  # reshape to BxHxWxDx1xC
-            diff = torch.matmul(diff, self.L)
-            diff = diff.squeeze(4).permute(
-                0, 4, 1, 2, 3)  # reshape back to BxCxHxWxD
-            # squared norm along channel dim
-            diff = torch.sum(diff**2, dim=1, keepdim=True)
-
-            loss = (D/2 * torch.log(2 * self.pi)  # factor n multiplication via boradcasting during addition
-                    # factor n multiplication via boradcasting during addition
-                    - 0.5 * torch.log(torch.diagonal(self.L) ** 2).sum()
-                    + 0.5 * diff)
-
+            loss = self.recon_loss_full_covar(I1_pyramid, I01_pyramid)
         else:
-            # diagonal covar matrix
-            diff = (I1 - I01)**2
-
-            var = torch.exp(self.recon_log_var).view(1, D, 1, 1, 1)
-            log_var = self.recon_log_var
-
-            loss = (D/2 * torch.log(2 * self.pi)  # factor n multiplication via boradcasting during addition
-                    + 0.5 * log_var.sum()  # factor n multiplication via boradcasting during addition
-                    + 0.5 * torch.sum(diff / var, dim=1, keepdim=True))
+            loss = self.recon_loss_diag_covar(I1_pyramid, I01_pyramid)
 
         if reduction == 'none':
             return loss
@@ -129,6 +162,56 @@ class ELBO(nn.Module):
             return loss.mean()
         else:
             raise Exception(f'reduction {reduction} not found.')
+
+    def recon_loss_diag_covar(self, I1_pyramid, I01_pyramid):
+        # recon loss with diagonal covariance matrix
+
+        # memory-saving computation: do the loss calculation on each scale of the feature pyramid first, then upscale
+        channel_from = 0
+        loss_pyramid = []
+        for I1, I01 in zip(I1_pyramid, I01_pyramid):
+            diff = (I1 - I01)**2
+
+            d = diff.shape[1]  # d channels on this pyramid level
+            var = torch.exp(
+                self.recon_log_var[channel_from:channel_from+d]).view(1, d, 1, 1, 1)
+            log_var = self.recon_log_var[channel_from:channel_from+d]
+            channel_from += d
+            loss = (d/2 * torch.log(2 * self.pi)  # factor n multiplication via boradcasting during addition
+                    + 0.5 * log_var.sum()  # factor n multiplication via boradcasting during addition
+                    + 0.5 * torch.sum(diff / var, dim=1, keepdim=True))
+            loss_pyramid.append(loss)
+
+        # scale loss pyramid up to full size
+        loss = self._pyramid_to_fullsize(loss_pyramid)
+
+        # reduce loss to single channel
+        return torch.sum(loss, dim=1, keepdim=True)
+
+    def recon_loss_full_covar(self, I1_pyramid, I01_pyramid):
+        # recon loss with full covar matrix,
+        # covariance matrix via cholensky decomposition \Sigma^-1 = L L^T
+
+        D = self.data_dims[0]  # D channels
+        # transform pyramid to fullsize image (very memory intensive)
+        I1 = self._pyramid_to_fullsize(I1_pyramid)
+        I01 = self._pyramid_to_fullsize(I01_pyramid)
+
+        # calculate ||v^T L||^2
+        diff = I1 - I01
+        diff = diff.permute(0, 2, 3, 4, 1).unsqueeze(
+            4)  # reshape to BxHxWxDx1xC
+        diff = torch.matmul(diff, self.L)
+        diff = diff.squeeze(4).permute(
+            0, 4, 1, 2, 3)  # reshape back to BxCxHxWxD
+        # squared norm along channel dim
+        diff = torch.sum(diff**2, dim=1, keepdim=True)
+
+        loss = (D/2 * torch.log(2 * self.pi)  # factor n multiplication via boradcasting during addition
+                # factor n multiplication via boradcasting during addition
+                - 0.5 * torch.log(torch.diagonal(self.L) ** 2).sum()
+                + 0.5 * diff)
+        return loss
 
     def kl_loss(self, mu, log_var, reduction='mean'):
         def expect(t):
