@@ -12,9 +12,9 @@ else
     WRAPPER_FUNC=
 fi
 
-# platelet with weight decay 0.1
-$WRAPPER_FUNC python3 -m src.train_semantic_loss --dataset platelet-em --channels 32 64 64 --gpus -1 --accelerator dp --max_steps 2000 --lr_decline_patience 50 --early_stop_patience 80 --batch_size 32 --bnorm --weight_decay 0.1 --notest
-mv lightning_logs/version_0 weights/platelet-em/semantic_loss/weight_decay0.1
+# platelet with weight decay 0.3
+$WRAPPER_FUNC python3 -m src.train_semantic_loss --dataset platelet-em --channels 32 64 64 --gpus -1 --accelerator dp --max_steps 2000 --lr_decline_patience 50 --early_stop_patience 80 --batch_size 32 --bnorm --weight_decay 0.03 --notest
+mv lightning_logs/version_0 weights/platelet-em/semantic_loss/weight_decay0.3
 
 # brain with weight decay of 0.0005
 $WRAPPER_FUNC python3 -m src.train_semantic_loss --dataset brain2d --channels 32 64 64 --gpus -1 --accelerator dp --max_steps 20000 --lr_decline_patience 50 --early_stop_patience 80 --batch_size 16 --bnorm --weight_decay 0.0005 --notest
