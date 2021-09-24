@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import pytorch_lightning as pl
 import torchreg
 from src.models.segnet import SegNet
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 
 class SemanticLossModel(pl.LightningModule):
@@ -69,20 +69,39 @@ class SemanticLossModel(pl.LightningModule):
         y_pred = torch.argmax(y_pred_onehot, dim=1, keepdim=True)
         return y_pred, y_pred_onehot, y_pred_raw
 
-    def extract_features(self, x):
+    def extract_features(self, x: torch.Tensor) -> List[torch.Tensor]:
         """
-        Extracts deep features from the input.
+        Extracts a pyramid of channel-normalized features from the image
+
+        Args:
+            x (torch.Tensor): intensity image of shape BxCxHxWxD
+
+        Returns:
+            List[torch.Tensor]: List of pyramidal feature representations
         """
         self.eval()
         feat = []
         for stage in self.net.unet.encoder:
+            # get representation
             x = stage(x)
-            feat.append(x)
+
+            # normalize by channel
+            channel_norms = (x**2).sum(dim=[2, 3, 4], keepdim=True) ** 0.5
+            x_norm = x / channel_norms
+
+            # append to pyramid
+            feat.append(x_norm)
         return feat
 
-    def augment_image(self, x):
+    def augment_image(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Augments an image by extracting deep features.
+        Augments an image by extracting deep features, and scaling them to full resolution
+
+        Args:
+            x (torch.Tensor): intensity image of shape BxCxHxWxD
+
+        Returns:
+            torch.Tensor: Augmented image of shape BxC1xHxWxD, C1 of the accumulative sum of U-Net encoder channels
         """
         H, W, D = x.shape[2:]
         # get features
@@ -98,10 +117,6 @@ class SemanticLossModel(pl.LightningModule):
 
         # stack along channel dimension
         feats = torch.cat(feats, dim=1)
-
-        # normalize by channel
-        channel_norms = (feats**2).sum(dim=[2, 3, 4], keepdim=True) ** 0.5
-        feats = feats / channel_norms
 
         return feats
 
