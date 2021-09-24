@@ -52,9 +52,9 @@ class ResizeTransform(nn.Module):
     Resize a transform, which involves resizing the vector field *and* rescaling it.
     """
 
-    def __init__(self, vel_resize):
+    def __init__(self, downsize_factor):
         super().__init__()
-        self.factor = 1.0 / vel_resize
+        self.factor = 1.0 / downsize_factor
         self.mode = interpol_mode("linear")
 
     def forward(self, x):
