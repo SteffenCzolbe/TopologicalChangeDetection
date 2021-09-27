@@ -49,14 +49,14 @@ case $DATASET in
     DATASET_SHORT=br
     ;;
     brain2d)
-    TIME=1-00:00:00
+    TIME=4-00:00:00
     GRES=gpu:titanrtx:1
-    DATASET_SHORT=br
+    DATASET_SHORT=br2d
     ;;
     heart-mri)
     TIME=1-00:00:00
     GRES=gpu:titanrtx:1
-    DATASET_SHORT=br
+    DATASET_SHORT=hr
     ;;
     platelet-em)
     TIME=1-00:00:00
