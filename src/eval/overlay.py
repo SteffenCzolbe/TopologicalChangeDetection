@@ -7,26 +7,34 @@ from src.registration_model import RegistrationModel
 import src.util as util
 
 
-def load_module_and_dataset(hparams):
-    # load data
-    dm1 = util.load_datamodule_from_name(
-        hparams.ds1, batch_size=32, pairs=False)
-    dm2 = util.load_datamodule_from_name(
-        hparams.ds2, batch_size=32, pairs=False)
+def load_model(hparams):
     # load model
     model = util.load_model_from_logdir(hparams.weights)
     model.eval()
-    return model, dm1, dm2
+    return model
 
 
-def get_batch(dm1, dm2, device):
-    dl1 = dm1.test_dataloader()
-    batch1 = next(iter(dl1))
-    I0 = batch1['I']['data'].to(device)
+def get_batch(ds1, ds2, device):
+    if ds1 == ds2:
+        dm = util.load_datamodule_from_name(
+            ds1, batch_size=32, pairs=True)
+        dl = dm.test_dataloader()
+        batch = next(iter(dl))
+        I0 = batch['I0']['data'].to(device)
+        I1 = batch['I1']['data'].to(device)
 
-    dl2 = dm2.test_dataloader()
-    batch2 = next(iter(dl2))
-    I1 = batch2['I']['data'].to(device)
+    else:
+        dm1 = util.load_datamodule_from_name(
+            ds1, batch_size=32, pairs=False)
+        dm2 = util.load_datamodule_from_name(
+            ds2, batch_size=32, pairs=False)
+        dl1 = dm1.test_dataloader()
+        batch1 = next(iter(dl1))
+        I0 = batch1['I']['data'].to(device)
+
+        dl2 = dm2.test_dataloader(shuffle=True)
+        batch2 = next(iter(dl2))
+        I1 = batch2['I']['data'].to(device)
 
     return I0, I1
 
@@ -68,9 +76,9 @@ def plot(args, I0, I1, bound_0, bound_1):
 
 def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    model, dm1, dm2 = load_module_and_dataset(args)
+    I0, I1 = get_batch(hparams.ds1, hparams.ds2, device)
+    model = load_model(hparams)
     model.to(device)
-    I0, I1 = get_batch(dm1, dm2, device)
     I01, bound_0, bound_1 = predict(
         model, I0, I1)
     plot(args, I0, I1, bound_0, bound_1)

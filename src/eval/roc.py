@@ -44,14 +44,14 @@ def group_bounds_by_tumor_or_notumor(I1, S1, bound1, potential_bg, include_edema
     return tumor_bounds, non_tumor_bounds
 
 
-def get_bounds_for_model(model_name, include_edema, bootstrap=False):
+def get_bounds_for_model(model_name, dataset, include_edema, bootstrap=False):
     potential_bg = load_bg_mask()
     precomputed_p_tumor_dir = os.path.join(
-        config.MODELS[model_name]["path"], "p_tumor")
-    if include_edema:
+        config.MODELS[model_name]["path"][dataset], "p_tumor")
+    if ("brain" in dataset) and include_edema:
         # check if precomputed values exist specifically for edema
         precomputed_p_tumor_or_edema_dir = os.path.join(
-            config.MODELS[model_name]["path"], "p_tumor_or_edema")
+            config.MODELS[model_name]["path"][dataset], "p_tumor_or_edema")
         if os.path.isdir(precomputed_p_tumor_or_edema_dir):
             precomputed_p_tumor_dir = precomputed_p_tumor_or_edema_dir
     subject_ids = os.listdir(precomputed_p_tumor_dir)
@@ -74,12 +74,12 @@ def get_bounds_for_model(model_name, include_edema, bootstrap=False):
     return tumor_bounds, non_tumor_bounds
 
 
-def get_roc_curve(model_name, include_edema, bootstrap_sample_cnt):
+def get_roc_curve(model_name, dataset, include_edema, bootstrap_sample_cnt):
     random.seed(42)
     fprs, tprs, aucs = [], [], []
     for i in range(bootstrap_sample_cnt):
         tumor_bounds, non_tumor_bounds = get_bounds_for_model(
-            model_name, include_edema, bootstrap=(i > 0))
+            model_name, dataset, include_edema, bootstrap=(i > 0))
 
         # get true positive rate, false negative rate
         class_labels = [0] * len(non_tumor_bounds) + [1] * \
@@ -119,9 +119,9 @@ def plot_finish(args):
     fig.savefig(args.file + '.pdf')
 
 
-def plot_model(model_name, include_edema, bootstrap_sample_cnt):
+def plot_model(model_name, dataset, include_edema, bootstrap_sample_cnt):
     fpr, tpr, auc = get_roc_curve(
-        model_name, include_edema, bootstrap_sample_cnt)
+        model_name, dataset, include_edema, bootstrap_sample_cnt)
 
     label = config.MODELS[model_name]["display_name"] + f", {auc:.2f} AUC"
     plt.plot(fpr, tpr, label=label, color=config.MODELS[model_name]["color"])
@@ -132,7 +132,8 @@ def main(args):
     model_names = config.ALL_MODELS
     plot_setup()
     for model_name in model_names:
-        plot_model(model_name, args.include_edema, args.bootstrap_sample_cnt)
+        plot_model(model_name, args.dataset, args.include_edema,
+                   args.bootstrap_sample_cnt)
     plot_finish(args)
 
 
@@ -144,6 +145,11 @@ if __name__ == '__main__':
         type=str,
         default="./plots/roc",
         help="outputfile, without extension",
+    )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        help="dataset name",
     )
     parser.add_argument(
         "--bootstrap_sample_cnt",
@@ -159,7 +165,7 @@ if __name__ == '__main__':
     parser.add_argument(
         "--include_edema",
         action="store_true",
-        help="Set to include edema with the tumor",
+        help="Set to include edema of the brain datasets with the tumor",
     )
     args = parser.parse_args()
 

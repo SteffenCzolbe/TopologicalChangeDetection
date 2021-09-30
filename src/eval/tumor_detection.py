@@ -36,7 +36,7 @@ def mean_pIK(args):
     Ks = Ks['I']['data'].to(device)
 
     # load model
-    weights = config.MODELS[args.model_name]["path"]
+    weights = config.MODELS[args.model_name]["path"]["brain2d"]
     model_cls = config.MODELS[args.model_name]["model_cls"]
     model = util.load_model_from_logdir(weights, model_cls=model_cls)
     model.eval()
@@ -81,7 +81,7 @@ def p_tumor(args):
     brats_dl = brats_dm.test_dataloader()
 
     # load model
-    weights = config.MODELS[args.model_name]["path"]
+    weights = config.MODELS[args.model_name]["path"]["brain2d"]
     model_cls = config.MODELS[args.model_name]["model_cls"]
     model = util.load_model_from_logdir(weights, model_cls=model_cls)
     model.eval()
@@ -123,12 +123,12 @@ def p_tumor(args):
             print(f"p_tumpr min: {ptumor.min()}, max: {ptumor.max()}")
         if i == 8:
             fig.save(os.path.join(
-                config.MODELS[args.model_name]["path"], "p_tumor.png"))
+                config.MODELS[args.model_name]["path"]["brain2d"], "p_tumor.png"))
 
 
 def main(args):
     args.mean_pIK_dir = os.path.join(
-        config.MODELS[args.model_name]["path"], "mean_pIK")
+        config.MODELS[args.model_name]["path"]["brain2d"], "mean_pIK")
     if os.path.isdir(args.mean_pIK_dir) and not args.non_cached:
         print('using cached mean_pIK')
     else:
@@ -145,7 +145,7 @@ def main(args):
         mean_pIK(args)
 
     args.p_tumor_dir = os.path.join(
-        config.MODELS[args.model_name]["path"], "p_tumor")
+        config.MODELS[args.model_name]["path"]["brain2d"], "p_tumor")
     if os.path.isdir(args.p_tumor_dir) and not args.non_cached:
         print('using cached p_tumor')
     else:

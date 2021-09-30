@@ -74,7 +74,7 @@ def mean_difference_in_atlas_domain(args):
     Js = Js['I']['data'].to(device)
 
     # load model
-    weights = config.MODELS[args.model_name]["path"]
+    weights = config.MODELS[args.model_name]["path"]["brain2d"]
     model_cls = config.MODELS[args.model_name]["model_cls"]
     model = util.load_model_from_logdir(weights, model_cls=model_cls)
     model.eval()
@@ -98,7 +98,7 @@ def mean_difference_in_atlas_domain(args):
     # visualize bound and images
     fig = viz.Fig(1, 2, title=None, figsize=(3.5, 2))
     plt.tight_layout(pad=0)
-    vmin, vmax = config.MODELS[args.model_name]["probability_range"]
+    vmin, vmax = config.MODELS[args.model_name]["probability_range"]["brain2d"]
     # plot heatmap
     fig.plot_img(0, 0, crop(atlas[0]), vmin=0, vmax=1)
     fig.plot_overlay(0, 0, crop(bounds[0]), vmin=vmin,

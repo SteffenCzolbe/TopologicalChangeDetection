@@ -16,6 +16,7 @@ def crop(img, x_low=25, x_high=224, y_low=0, y_high=160):
 
 if __name__ == "__main__":
     # load samples
+    # TODO: due to refactoring, subject indices changed. These are no longer great examples.
     brain0_subject = BrainMRIDataModule().test_dataloader().dataset.subjects[2]
     brain1_subject = BrainMRIDataModule().test_dataloader().dataset.subjects[0]
     brain0 = util.load_subject_from_dataset(
@@ -24,7 +25,7 @@ if __name__ == "__main__":
         "brain2d", "test", brain1_subject)[0]["data"].unsqueeze(0)
 
     # load model
-    weights = config.MODELS["semantic_loss"]["path"]
+    weights = config.MODELS["semantic_loss"]["path"]["brain2d"]
     model_cls = config.MODELS["semantic_loss"]["model_cls"]
     model = util.load_model_from_logdir(weights, model_cls=model_cls)
     model.eval()

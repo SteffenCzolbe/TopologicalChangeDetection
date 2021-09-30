@@ -21,7 +21,7 @@ def load_images(brain_subject_id, brats_subject_id):
 
 
 def load_q_tumor(model_name, subject_id):
-    dir = os.path.join(config.MODELS[model_name]['path'], "p_tumor")
+    dir = os.path.join(config.MODELS[model_name]['path']["brain2d"], "p_tumor")
     q_tumor = torch.load(os.path.join(dir, subject_id))
     return q_tumor
 
@@ -84,7 +84,8 @@ def plot(args, model_names, brain_subject_ids, brats_subject_ids, mse_model, sem
 
         # plot mse model tumor prediction
         q_tumor = load_q_tumor(model_names[0], brats_subject_id)
-        vmin, vmax = config.MODELS[model_names[0]]["p_tumor_probability_range"]
+        vmin, vmax = config.MODELS[model_names[0]
+                                   ]["p_tumor_probability_range"]["brain2d"]
         fig.plot_img(row, 1, crop(J), vmin=0, vmax=1)
         fig.plot_overlay(row, 1, crop(q_tumor), vmin=vmin,
                          vmax=vmax, cbar=False, alpha=0.45)
@@ -95,7 +96,8 @@ def plot(args, model_names, brain_subject_ids, brats_subject_ids, mse_model, sem
 
         # plot sem model tumor prediction
         q_tumor = load_q_tumor(model_names[1], brats_subject_id)
-        vmin, vmax = config.MODELS[model_names[1]]["p_tumor_probability_range"]
+        vmin, vmax = config.MODELS[model_names[1]
+                                   ]["p_tumor_probability_range"]["brain2d"]
         fig.plot_img(row, 2, crop(J), vmin=0, vmax=1)
         fig.plot_overlay(row, 2, crop(q_tumor), vmin=vmin,
                          vmax=vmax, cbar=False, alpha=0.45)
@@ -109,14 +111,16 @@ def plot(args, model_names, brain_subject_ids, brats_subject_ids, mse_model, sem
 
         # plot topological differences
         l_sym = load_L_sym(mse_model, I, J)
-        vmin, vmax = config.MODELS[model_names[0]]["probability_range"]
+        vmin, vmax = config.MODELS[model_names[0]
+                                   ]["probability_range"]["brain2d"]
         fig.plot_img(row, 4, crop(J), vmin=0, vmax=1)
         fig.plot_overlay(row, 4, crop(l_sym), vmin=vmin,
                          vmax=vmax, cbar=False, alpha=0.45)
 
         # plot topological differences
         l_sym = load_L_sym(sem_model, I, J)
-        vmin, vmax = config.MODELS[model_names[1]]["probability_range"]
+        vmin, vmax = config.MODELS[model_names[1]
+                                   ]["probability_range"]["brain2d"]
         fig.plot_img(row, 5, crop(J), vmin=0, vmax=1)
         fig.plot_overlay(row, 5, crop(l_sym), vmin=vmin,
                          vmax=vmax, cbar=False, alpha=0.45)
@@ -130,15 +134,17 @@ def main(args):
     torchreg.settings.set_ndims(2)
     # we use some brats subjects selected at random in an earlier version of the code,
     # since we had already written the results section for these
-
-    brats_subject_ids = ["BraTS20_Training_309", "BraTS20_Training_087",
-                         "BraTS20_Training_169", "BraTS20_Training_323", "BraTS20_Training_149"]
-    brain_subject_ids = BrainMRIDataModule(
-    ).test_dataloader().dataset.subjects  # [:args.sample_cnt]
+    if args.dataset == "brain2d":
+        brats_subject_ids = ["BraTS20_Training_309", "BraTS20_Training_087",
+                             "BraTS20_Training_169", "BraTS20_Training_323", "BraTS20_Training_149"]
+        brain_subject_ids = BrainMRIDataModule(
+        ).test_dataloader().dataset.subjects  # [:args.sample_cnt]
+    else:
+        raise Exception(f"not implemented for dataset {args.dataset}")
     mse_model = util.load_model_from_logdir(
-        config.MODELS[config.FULL_MODELS[0]]["path"])
+        config.MODELS[config.FULL_MODELS[0]]["path"][args.dataset])
     sem_model = util.load_model_from_logdir(
-        config.MODELS[config.FULL_MODELS[1]]["path"])
+        config.MODELS[config.FULL_MODELS[1]]["path"][args.dataset])
 
     plot(args, config.FULL_MODELS, brain_subject_ids,
          brats_subject_ids, mse_model, sem_model)
@@ -153,6 +159,12 @@ if __name__ == "__main__":
         type=str,
         default="./plots/pub_fig",
         help="outputfile, without extension",
+    )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default="brain2d",
+        help="dataset",
     )
 
     hparams = parser.parse_args()
