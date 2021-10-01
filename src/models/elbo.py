@@ -173,9 +173,10 @@ class ELBO(nn.Module):
             diff = (I1 - I01)**2
 
             d = diff.shape[1]  # d channels on this pyramid level
-            var = torch.exp(
-                self.recon_log_var[channel_from:channel_from+d]).view(1, d, 1, 1, 1)
-            log_var = self.recon_log_var[channel_from:channel_from+d]
+            log_var = self.recon_log_var if self.recon_log_var.dim() == 0 else self.recon_log_var[
+                channel_from:channel_from+d]
+            var = torch.exp(log_var).view(
+                1, d, 1, 1, 1)
             channel_from += d
             loss = (d/2 * torch.log(2 * self.pi)  # factor n multiplication via boradcasting during addition
                     + 0.5 * log_var.sum()  # factor n multiplication via boradcasting during addition
