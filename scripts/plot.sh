@@ -1,6 +1,6 @@
-BRAIN2DMSEMODEL=/trained_models/mse # TODO: change to new multi-dataset format
-BRAIN2DSEMMODEL=./weights/brain2d/topology_detection/semantic_loss/weight_decay0.03
-# PLTELETEMMSEMODEL=./weights/platelet-em/topology_detection/mse/weight_decay0.01
+BRAIN2DMSEMODEL=./weights/brain2d/topology_detection/mse/weight_decay0.0005
+BRAIN2DSEMMODEL=./weights/brain2d/topology_detection/semantic_loss/weight_decay0.0005
+PLTELETEMMSEMODEL=./weights/platelet-em/topology_detection/mse/weight_decay0.01
 PLTELETEMSEMMODEL=./weights/platelet-em/topology_detection/semantic_loss/weight_decay0.01
 
 # introduction figure template (publication fig)

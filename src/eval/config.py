@@ -4,8 +4,8 @@ from src.baselines.jac_det_model import JacDetModel
 from src.baselines.li_wyatt_model import LiWyattModel
 from src.baselines.segmentation_model import SegmentationModel
 MODELS = {
-    "mse": {"path": {"brain2d": "trained_models/mse",  # TODO: change to new multi-dataset format
-                     "platelet-em": ""},
+    "mse": {"path": {"brain2d": "weights/brain2d/topology_detection/mse/weight_decay0.0005",
+                     "platelet-em": "weights/platelet-em/topology_detection/mse/weight_decay0.01"},
             "model_cls": RegistrationModel,
             "display_name": "MSE",
             "color": "tab:orange",
@@ -13,8 +13,8 @@ MODELS = {
             "probability_range": {"brain2d": (2, 10),
                                   "platelet-em": ()},
             "p_tumor_probability_range": (-0.2, 8)},
-    "semantic_loss": {"path": {"brain2d": "weights/brain2d/topology_detection/semantic_loss/weight_decay0.03",
-                               "platelet-em": "./weights/platelet-em/topology_detection/semantic_loss/weight_decay0.01"},
+    "semantic_loss": {"path": {"brain2d": "weights/brain2d/topology_detection/semantic_loss/weight_decay0.0005",
+                               "platelet-em": "weights/platelet-em/topology_detection/semantic_loss/weight_decay0.01"},
                       "model_cls": RegistrationModel,
                       "display_name": "Semantic Loss",
                       "color": "tab:blue",
