@@ -106,7 +106,7 @@ def main(args):
     torchreg.settings.set_ndims(2)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     I, J = load_samples(args.dataset, device)
-    model_names = ["semantic_loss"]
+    model_names = ["mse", "semantic_loss"]
     models = load_models(model_names, args.dataset, device)
 
     plot(args, model_names, models, I, J)
