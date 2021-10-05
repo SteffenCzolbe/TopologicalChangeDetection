@@ -12,15 +12,20 @@ else
     WRAPPER_FUNC=
 fi
 
-# train the deterministic model for baselines
-$WRAPPER_FUNC python3 -m src.baselines.train_deterministic_registration --dataset brain2d --channels 64 128 256 --regularizer_strengh 0.1 --gpus -1 --accelerator dp --max_epochs 250 --lr_decline_patience 50 --early_stop_patience 80 --batch_size 32 --bnorm --dropout --notest
-cp -r lightning_logs/version_0 trained_auxiliary_models/jac_det_model
-mv lightning_logs/version_0 trained_auxiliary_models/li_wyatt_model
+#
+# Brain2d Dataset
+#
 
-# train tumor segmentation model for the baselines
-$WRAPPER_FUNC python3 -m src.baselines.train_segmentation --dataset brats2d --channels 32 64 128 256 --gpus -1 --accelerator dp --max_epochs 800 --lr_decline_patience 500 --early_stop_patience 800 --batch_size 32 --bnorm --dropout --notest --fast_dev_run $FAST_DEV_RUN
-mv lightning_logs/version_0 trained_auxiliary_models/segmentation_model/
+# train high-capacity segmentation model for baseline "segmentation_model"
+$WRAPPER_FUNC python3 -m src.baselines.train_segmentation --dataset brats2d --channels 32 64 128 256 --gpus -1 --accelerator dp --max_epochs 800 --lr_decline_patience 500 --early_stop_patience 800 --batch_size 32 --bnorm --weight_decay 0.0005 --notest --fast_dev_run $FAST_DEV_RUN
+#mv lightning_logs/version_0 weights/brain2d/baselines/segmentation
 
-# train vae model for the baselines
+# train the deterministic registration model for baselines "jac_det_model", "li_wyatt_model"
+$WRAPPER_FUNC python3 -m src.baselines.train_deterministic_registration --dataset brain2d --channels 64 128 256 --regularizer_strengh 0.1 --gpus -1 --accelerator dp --max_epochs 250 --lr_decline_patience 50 --early_stop_patience 80 --batch_size 32 --bnorm --weight_decay 0.0005 --notest --fast_dev_run $FAST_DEV_RUN
+#cp -r lightning_logs/version_0 weights/brain2d/baselines/jac_det_model
+#mv lightning_logs/version_0 weights/brain2d/baselines/li_wyatt_model
+
+TODO
+# train vae model for baseline "vae_anomaly_detection"
 $WRAPPER_FUNC python3 -m src.baselines.train_vae --dataset brain2d --channels 32 64 128 256 --latent_dim 512 --sigma 1 --gpus -1 --accelerator dp --max_epochs 200 --lr_decline_patience 50 --early_stop_patience 80 --batch_size 32 --notest --fast_dev_run $FAST_DEV_RUN
-mv lightning_logs/version_0 trained_auxiliary_models/vae_anomaly_detection_model/
+#mv lightning_logs/version_0 weights/brain2d/baselines/vae_anomaly_detection_model
