@@ -85,7 +85,7 @@ def plot(args, model_names, brain_subject_ids, brats_subject_ids, mse_model, sem
         # plot mse model tumor prediction
         q_tumor = load_q_tumor(model_names[0], brats_subject_id)
         vmin, vmax = config.MODELS[model_names[0]
-                                   ]["p_tumor_probability_range"]["brain2d"]
+                                   ]["p_tumor_probability_range"]
         fig.plot_img(row, 1, crop(J), vmin=0, vmax=1)
         fig.plot_overlay(row, 1, crop(q_tumor), vmin=vmin,
                          vmax=vmax, cbar=False, alpha=0.45)
@@ -97,7 +97,7 @@ def plot(args, model_names, brain_subject_ids, brats_subject_ids, mse_model, sem
         # plot sem model tumor prediction
         q_tumor = load_q_tumor(model_names[1], brats_subject_id)
         vmin, vmax = config.MODELS[model_names[1]
-                                   ]["p_tumor_probability_range"]["brain2d"]
+                                   ]["p_tumor_probability_range"]
         fig.plot_img(row, 2, crop(J), vmin=0, vmax=1)
         fig.plot_overlay(row, 2, crop(q_tumor), vmin=vmin,
                          vmax=vmax, cbar=False, alpha=0.45)
