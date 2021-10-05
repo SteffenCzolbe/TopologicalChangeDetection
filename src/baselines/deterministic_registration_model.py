@@ -59,7 +59,7 @@ class DeterministicRegistrationModel(pl.LightningModule):
         self.hparams.data_dims = (channel_cnt, *self.hparams.data_dims[1:])
 
     def configure_optimizers(self):
-        opt = torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
+        opt = torch.optim.Adam(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
         sched = torch.optim.lr_scheduler.ReduceLROnPlateau(
             opt,
             "min",
@@ -208,6 +208,9 @@ class DeterministicRegistrationModel(pl.LightningModule):
         )
         parser.add_argument(
             "--conv_layers_per_stage", type=int, default=1, help="Convolutional layer sper network stage. Default: 2"
+        )
+        parser.add_argument(
+            "--weight_decay", type=float, default=0., help="Weight decay factor. Default 0."
         )
 
         return parent_parser
