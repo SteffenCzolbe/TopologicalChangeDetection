@@ -96,6 +96,10 @@ def load_datamodule_for_model(model, batch_size=None):
     return load_datamodule(datamodule_name, batch_size=batch_size)
 
 
+def checkpoint_exists(model_logdir):
+    return os.path.isdir(model_logdir)
+
+
 def get_checkoint_path_from_logdir(model_logdir):
     epoch_to_checkpoint = {}
     regex = r".*epoch=([0-9]+)-step=[0-9]+.ckpt"

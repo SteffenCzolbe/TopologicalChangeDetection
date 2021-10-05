@@ -102,11 +102,19 @@ def load_models(model_names, dataset, device):
     return models
 
 
+def filter_for_existing_models(model_names, dataset):
+    existing_models = []
+    for model_name in model_names:
+        if util.checkpoint_exists(config.MODELS[model_name]["path"][dataset]):
+            existing_models.append(model_name)
+    return existing_models
+
+
 def main(args):
     torchreg.settings.set_ndims(2)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     I, J = load_samples(args.dataset, device)
-    model_names = ["mse", "semantic_loss"]
+    model_names = filter_for_existing_models(config.ALL_MODELS, args.dataset)
     models = load_models(model_names, args.dataset, device)
 
     plot(args, model_names, models, I, J)

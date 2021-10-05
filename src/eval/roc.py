@@ -120,6 +120,8 @@ def plot_finish(args):
 
 
 def plot_model(model_name, dataset, include_edema, bootstrap_sample_cnt):
+    if not util.checkpoint_exists(config.MODELS[model_name]["path"][dataset]):
+        return
     fpr, tpr, auc = get_roc_curve(
         model_name, dataset, include_edema, bootstrap_sample_cnt)
 
