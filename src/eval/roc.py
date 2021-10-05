@@ -11,7 +11,7 @@ from sklearn.metrics import roc_auc_score
 import src.eval.config as config
 
 
-def load_bg_mask():
+def load_2d_brain_background_mask():
     # load a mask of potential background areas
     mask = imageio.imread("./src/eval/mask.png")
     mask = torch.as_tensor(mask).view(1, 224, 160, 1)
@@ -44,8 +44,19 @@ def group_bounds_by_tumor_or_notumor(I1, S1, bound1, potential_bg, include_edema
     return tumor_bounds, non_tumor_bounds
 
 
-def get_bounds_for_model(model_name, dataset, include_edema, bootstrap=False):
-    potential_bg = load_bg_mask()
+def get_bounds_for_model_brain_dataset(model_name, dataset, include_edema, bootstrap=False):
+    """Returns topological-change probability values, grouped by ground truth into classes of topological_change, no_topological_change
+
+    Args:
+        model_name ([type]): [description]
+        dataset ([type]): [description]
+        include_edema ([type]): [description]
+        bootstrap (bool, optional): [description]. Defaults to False.
+
+    Returns:
+        [type]: [description]
+    """
+    potential_bg = load_2d_brain_background_mask()
     precomputed_p_tumor_dir = os.path.join(
         config.MODELS[model_name]["path"][dataset], "p_tumor")
     if ("brain" in dataset) and include_edema:
@@ -72,6 +83,36 @@ def get_bounds_for_model(model_name, dataset, include_edema, bootstrap=False):
         non_tumor_bounds += ntb
 
     return tumor_bounds, non_tumor_bounds
+
+
+def get_bounds_for_model_platelet_em(model_name, bootstrap=False):
+    # TODO
+    bounds_topological_change = []
+    bounds_no_topological_change = []
+    return bounds_topological_change, bounds_no_topological_change
+
+
+def get_bounds_for_model(model_name, dataset, include_edema, bootstrap=False):
+    """Get model-specific bounds grouped by ground-truth values for computation of the ROC curves.
+
+    Args:
+        model_name (str): name of model
+        dataset (str): name of dataset
+        include_edema (bool): srt to include edema into brain evaluation
+        bootstrap (bool, optional): Set to true to induce bootstrap-randomness. Set to false for deterministic behaviour. Defaults to False.
+
+    Returns:
+        Tuple[List]: bounds_topological_change, bounds_no_topological_change
+            Model-predicted bounds grouped by ground truth
+    """
+    if dataset == "brain2d":
+        bounds_topological_change, bounds_no_topological_change = get_bounds_for_model_brain_dataset(
+            model_name, dataset, include_edema, bootstrap=bootstrap)
+    elif dataset == "platelet-em":
+        bounds_topological_change, bounds_no_topological_change = get_bounds_for_model_platelet_em(
+            model_name, bootstrap=bootstrap)
+
+    return bounds_topological_change, bounds_no_topological_change
 
 
 def get_roc_curve(model_name, dataset, include_edema, bootstrap_sample_cnt):
