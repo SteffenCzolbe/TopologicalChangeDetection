@@ -87,9 +87,9 @@ class PlateletemDataModule(pl.LightningDataModule):
 
 
 if __name__ == '__main__':
-    def save_as_png(tio_img, fname):
-        output = tio.ScalarImage(tensor=tio_img["data"][i].detach() * 256,
-                                 affine=tio_img["affine"][i],
+    def save_as_png(tio_img, batch_idx, fname):
+        output = tio.ScalarImage(tensor=tio_img["data"][batch_idx].detach() * 128,
+                                 affine=tio_img["affine"][batch_idx],
                                  check_nans=True)
         output.as_pil().save(fname)
         print(f'saved image in {fname}')
@@ -108,10 +108,10 @@ if __name__ == '__main__':
     print('segmentation classes: ', seg['data'].unique())
 
     for i in range(batchsize):
-        save_as_png(batch['I0'], f'{i}_I0.png')
-        save_as_png(batch['I1'], f'{i}_I1.png')
-        save_as_png(batch['S0'], f'{i}_S0.png')
-        save_as_png(batch['S1'], f'{i}_S1.png')
-        save_as_png(batch['T0'], f'{i}_T0.png')
-        save_as_png(batch['T1'], f'{i}_T1.png')
-        save_as_png(batch['Tcombined'], f'{i}_Tcombined.png')
+        save_as_png(batch['I0'], i, f'{i}_I0.png')
+        save_as_png(batch['I1'], i, f'{i}_I1.png')
+        save_as_png(batch['S0'], i, f'{i}_S0.png')
+        save_as_png(batch['S1'], i, f'{i}_S1.png')
+        save_as_png(batch['T0'], i, f'{i}_T0.png')
+        save_as_png(batch['T1'], i, f'{i}_T1.png')
+        save_as_png(batch['Tcombined'], i, f'{i}_Tcombined.png')
