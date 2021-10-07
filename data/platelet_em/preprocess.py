@@ -76,32 +76,29 @@ def preprocess_tiff_stack(
         intensity_image_stack.seek(i)
         intensity_image = np.array(intensity_image_stack)
         class_image_stack.seek(i)
-        class_image = np.array(class_image_stack)
+        class_image = np.array(class_image_stack, dtype=np.uint8)
         if has_topology_annotation:
             topology_appear_image_stack.seek(i)
-            topology_appear_image = np.array(topology_appear_image_stack)
+            topology_appear_image = np.array(
+                topology_appear_image_stack, dtype=np.uint8)
             topology_disappear_image_stack.seek(i)
-            topology_disappear_image = np.array(topology_disappear_image_stack)
+            topology_disappear_image = np.array(
+                topology_disappear_image_stack, dtype=np.uint8)
             if i == 0:
                 topology_combined_image = np.zeros_like(
                     topology_disappear_image)
             else:
-                topology_appear_image_stack.seek(i-1)
+                topology_disappear_image_stack.seek(i-1)
                 topology_combined_image = np.clip(
-                    np.array(topology_appear_image_stack) + topology_appear_image, 0, 1)
+                    np.array(topology_disappear_image_stack, dtype=np.uint8) + topology_appear_image, 0, 1)
 
         # crop bbox
-        intensity_image = intensity_image[crop_bbox[0]
-            :crop_bbox[2], crop_bbox[1]: crop_bbox[3]]
-        class_image = class_image[crop_bbox[0]
-            :crop_bbox[2], crop_bbox[1]: crop_bbox[3]]
+        intensity_image = intensity_image[crop_bbox[0]:crop_bbox[2], crop_bbox[1]: crop_bbox[3]]
+        class_image = class_image[crop_bbox[0]:crop_bbox[2], crop_bbox[1]: crop_bbox[3]]
         if has_topology_annotation:
-            topology_appear_image = topology_appear_image[crop_bbox[0]
-                :crop_bbox[2], crop_bbox[1]: crop_bbox[3]]
-            topology_disappear_image = topology_disappear_image[crop_bbox[0]
-                :crop_bbox[2], crop_bbox[1]: crop_bbox[3]]
-            topology_combined_image = topology_combined_image[crop_bbox[0]
-                :crop_bbox[2], crop_bbox[1]: crop_bbox[3]]
+            topology_appear_image = topology_appear_image[crop_bbox[0]:crop_bbox[2], crop_bbox[1]: crop_bbox[3]]
+            topology_disappear_image = topology_disappear_image[crop_bbox[0]:crop_bbox[2], crop_bbox[1]: crop_bbox[3]]
+            topology_combined_image = topology_combined_image[crop_bbox[0]:crop_bbox[2], crop_bbox[1]: crop_bbox[3]]
 
         # map classes
         # reduce classes. Map all labels >1 to 2
