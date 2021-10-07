@@ -33,7 +33,12 @@ def preprocess_tiff_stack(
     crop_bbox,
     intensity_output_file,
     class_output_file,
-    semantic_output_file
+    semantic_output_file,
+    topology_appear_file=None,
+    topology_disappear_file=None,
+    topology_appear_output_file=None,
+    topology_disappear_output_file=None,
+    topology_combined_output_file=None,
 ):
     """
     Preprocesses the platelet-em dataset
@@ -50,22 +55,53 @@ def preprocess_tiff_stack(
         class_output_file ([type]): [description]
         semantic_output_file ([type]): [description]
     """
+    # load data and initialize output lists
     intensity_image_stack = Image.open(intensity_file)
     class_image_stack = Image.open(class_file)
-
     intensity_image_stack_output = []
     class_image_stack_output = []
     semantic_image_stack_output = []
+
+    has_topology_annotation = topology_appear_file is not None
+    if has_topology_annotation:
+        topology_appear_image_stack = Image.open(topology_appear_file)
+        topology_disappear_image_stack = Image.open(topology_disappear_file)
+        topology_appear_output = []
+        topology_disappear_output = []
+        topology_combined_output = []
+
+    # cut into slices
     for i in range(from_slice, to_slice):
         # load slice
         intensity_image_stack.seek(i)
         intensity_image = np.array(intensity_image_stack)
         class_image_stack.seek(i)
         class_image = np.array(class_image_stack)
+        if has_topology_annotation:
+            topology_appear_image_stack.seek(i)
+            topology_appear_image = np.array(topology_appear_image_stack)
+            topology_disappear_image_stack.seek(i)
+            topology_disappear_image = np.array(topology_disappear_image_stack)
+            if i == 0:
+                topology_combined_image = np.zeros_like(
+                    topology_disappear_image)
+            else:
+                topology_appear_image_stack.seek(i-1)
+                topology_combined_image = np.clip(
+                    np.array(topology_appear_image_stack) + topology_appear_image, 0, 1)
 
         # crop bbox
-        intensity_image = intensity_image[crop_bbox[0]:crop_bbox[2], crop_bbox[1]: crop_bbox[3]]
-        class_image = class_image[crop_bbox[0]:crop_bbox[2], crop_bbox[1]: crop_bbox[3]]
+        intensity_image = intensity_image[crop_bbox[0]
+            :crop_bbox[2], crop_bbox[1]: crop_bbox[3]]
+        class_image = class_image[crop_bbox[0]
+            :crop_bbox[2], crop_bbox[1]: crop_bbox[3]]
+        if has_topology_annotation:
+            topology_appear_image = topology_appear_image[crop_bbox[0]
+                :crop_bbox[2], crop_bbox[1]: crop_bbox[3]]
+            topology_disappear_image = topology_disappear_image[crop_bbox[0]
+                :crop_bbox[2], crop_bbox[1]: crop_bbox[3]]
+            topology_combined_image = topology_combined_image[crop_bbox[0]
+                :crop_bbox[2], crop_bbox[1]: crop_bbox[3]]
 
         # map classes
         # reduce classes. Map all labels >1 to 2
@@ -76,6 +112,13 @@ def preprocess_tiff_stack(
         class_image_stack_output.append(Image.fromarray(class_image))
         semantic_image_stack_output.append(
             class_to_rgb(class_image))  # re-generate rgb images
+        if has_topology_annotation:
+            topology_appear_output.append(
+                Image.fromarray(topology_appear_image))
+            topology_disappear_output.append(
+                Image.fromarray(topology_disappear_image))
+            topology_combined_output.append(
+                Image.fromarray(topology_combined_image))
 
     # save result
     intensity_image_stack_output[0].save(
@@ -87,18 +130,35 @@ def preprocess_tiff_stack(
     semantic_image_stack_output[0].save(
         semantic_output_file, save_all=True, append_images=semantic_image_stack_output[1:]
     )
+    if has_topology_annotation:
+        topology_appear_output[0].save(
+            topology_appear_output_file, save_all=True, append_images=topology_appear_output[1:]
+        )
+        topology_disappear_output[0].save(
+            topology_disappear_output_file, save_all=True, append_images=topology_disappear_output[1:]
+        )
+        topology_combined_output[0].save(
+            topology_combined_output_file, save_all=True, append_images=topology_combined_output[1:]
+        )
 
 
 if __name__ == "__main__":
     os.makedirs("./data/platelet_em/train/image/", exist_ok=True)
     os.makedirs("./data/platelet_em/train/label/", exist_ok=True)
     os.makedirs("./data/platelet_em/train/semantic/", exist_ok=True)
+    os.makedirs("./data/platelet_em/train/topology/", exist_ok=True)
     os.makedirs("./data/platelet_em/val/image/", exist_ok=True)
     os.makedirs("./data/platelet_em/val/label/", exist_ok=True)
     os.makedirs("./data/platelet_em/val/semantic/", exist_ok=True)
+    os.makedirs("./data/platelet_em/val/topology_appear/", exist_ok=True)
+    os.makedirs("./data/platelet_em/val/topology_disappear/", exist_ok=True)
+    os.makedirs("./data/platelet_em/val/topology_combined/", exist_ok=True)
     os.makedirs("./data/platelet_em/test/image/", exist_ok=True)
     os.makedirs("./data/platelet_em/test/label/", exist_ok=True)
     os.makedirs("./data/platelet_em/test/semantic/", exist_ok=True)
+    os.makedirs("./data/platelet_em/test/topology_appear/", exist_ok=True)
+    os.makedirs("./data/platelet_em/test/topology_disappear/", exist_ok=True)
+    os.makedirs("./data/platelet_em/test/topology_combined/", exist_ok=True)
     bboxes = [(16, 16, 272, 272),  # bounding boxes to split 800x800 image into 9x 256x256 patches
               (16, 272, 272, 528),
               (16, 528, 272, 784),
@@ -132,6 +192,11 @@ if __name__ == "__main__":
             f"./data/platelet_em/val/image/{p}.tif",
             f"./data/platelet_em/val/label/{p}.tif",
             f"./data/platelet_em/val/semantic/{p}.tif",
+            "./data/platelet_em/raw/labels-topology/topology_change_appear.tiff",
+            "./data/platelet_em/raw/labels-topology/topology_change_disappear.tiff",
+            f"./data/platelet_em/val/topology_appear/{p}.tif",
+            f"./data/platelet_em/val/topology_disappear/{p}.tif",
+            f"./data/platelet_em/val/topology_combined/{p}.tif",
         )
     # preprocess test data
     for p in tqdm(range(4, 9), desc="extracting test images"):
@@ -144,4 +209,9 @@ if __name__ == "__main__":
             f"./data/platelet_em/test/image/{p}.tif",
             f"./data/platelet_em/test/label/{p}.tif",
             f"./data/platelet_em/test/semantic/{p}.tif",
+            "./data/platelet_em/raw/labels-topology/topology_change_appear.tiff",
+            "./data/platelet_em/raw/labels-topology/topology_change_disappear.tiff",
+            f"./data/platelet_em/test/topology_appear/{p}.tif",
+            f"./data/platelet_em/test/topology_disappear/{p}.tif",
+            f"./data/platelet_em/test/topology_combined/{p}.tif",
         )
