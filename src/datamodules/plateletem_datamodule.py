@@ -4,6 +4,7 @@ import pytorch_lightning as pl
 import torchio as tio
 import os
 from .tif_image_stack_dataset import TifImageStackDataset
+from .tif_topology_change_dataset import TifTopologyChangeDataset
 import glob
 
 
@@ -57,13 +58,28 @@ class PlateletemDataModule(pl.LightningDataModule):
             self.data_dir, split, "image", "*.tif")))
         label_files = sorted(glob.glob(os.path.join(
             self.data_dir, split, "label", "*.tif")))
+        topology_appear_files = sorted(glob.glob(os.path.join(
+            self.data_dir, split, "topology_appear", "*.tif")))
+        topology_disappear_files = sorted(glob.glob(os.path.join(
+            self.data_dir, split, "topology_disappear", "*.tif")))
+        topology_combined_files = sorted(glob.glob(os.path.join(
+            self.data_dir, split, "topology_combined", "*.tif")))
+
+        datasets = []
 
         # load datasets
-        datasets = []
-        for intensity_file, label_file in zip(intensity_files, label_files):
-            dataset = TifImageStackDataset(intensity_file, label_file,
-                                           pairs=self.pairs, slice_pair_max_z_diff=2 if split == "train" else 1, augmentations=augmentations)
-            datasets.append(dataset)
+        if (not self.pairs) or split == "train":
+            # train set or single image:
+            for intensity_file, label_file in zip(intensity_files, label_files):
+                dataset = TifImageStackDataset(intensity_file, label_file,
+                                               pairs=self.pairs, slice_pair_max_z_diff=2 if split == "train" else 1, augmentations=augmentations)
+                datasets.append(dataset)
+        else:
+            # pairs and validation/test: load annotated topological differences
+            for intensity_file, label_file, topology_appear_file, topology_disappear_file, topology_combined_file in zip(intensity_files, label_files, topology_appear_files, topology_disappear_files, topology_combined_files):
+                dataset = TifTopologyChangeDataset(intensity_file, label_file, topology_appear_file,
+                                                   topology_disappear_file, topology_combined_file, augmentations=augmentations)
+                datasets.append(dataset)
 
         # concatinate individual TIF stack datasets
         dataset = ConcatDataset(datasets)
@@ -71,31 +87,31 @@ class PlateletemDataModule(pl.LightningDataModule):
 
 
 if __name__ == '__main__':
+    def save_as_png(tio_img, fname):
+        output = tio.ScalarImage(tensor=tio_img["data"][i].detach() * 256,
+                                 affine=tio_img["affine"][i],
+                                 check_nans=True)
+        output.as_pil().save(fname)
+        print(f'saved image in {fname}')
+
     batchsize = 4
     dm = PlateletemDataModule(pairs=True, batch_size=batchsize)
 
     # load a batch (manually, normally pytorch lightning does this for us)
-    dataloader = dm.train_dataloader(shuffle=True)
+    dataloader = dm.test_dataloader(shuffle=True)
     print('dataset length:', len(dataloader.dataset))
 
     batch = next(iter(dataloader))
-    image = batch['I0']
+    image = batch['S0']
     seg = batch['S0']
     print('batch shape: ', image["data"].shape)
     print('segmentation classes: ', seg['data'].unique())
 
     for i in range(batchsize):
-        # save output
-        output = tio.ScalarImage(tensor=image["data"][i].detach(),
-                                 affine=image["affine"][i],
-                                 check_nans=True)
-
-        if output.is_2d():
-            path = f"test{i}.png"
-            output['data'] = output['data'] * 256
-            output.as_pil().save(path)
-            print(f'saved image in {path}')
-        else:
-            path = f"test{i}.nii.gz"
-            output.save(path)
-            print(f'saved image in {path}')
+        save_as_png(batch['I0'], f'{i}_I0.png')
+        save_as_png(batch['I1'], f'{i}_I1.png')
+        save_as_png(batch['S0'], f'{i}_S0.png')
+        save_as_png(batch['S1'], f'{i}_S1.png')
+        save_as_png(batch['T0'], f'{i}_T0.png')
+        save_as_png(batch['T1'], f'{i}_T1.png')
+        save_as_png(batch['Tcombined'], f'{i}_Tcombined.png')
