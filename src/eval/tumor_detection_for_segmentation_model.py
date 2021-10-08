@@ -17,7 +17,7 @@ def p_tumor(args):
 
     # load brats
     brats_dm = util.load_datamodule_from_name(
-        "brats2d", batch_size=1, load_val_seg=True, pairs=False)
+        "brats2d-4-seg-baseline", batch_size=1, load_val_seg=True, pairs=False)
     brats_dl = brats_dm.val_dataloader()
 
     # load model
