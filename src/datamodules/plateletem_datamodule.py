@@ -10,7 +10,7 @@ import glob
 
 class PlateletemDataModule(pl.LightningDataModule):
     def __init__(self, pairs=True, data_dir: str = "./data/platelet_em/", batch_size: int = 32, **kwargs):
-        """The Brain-MRI datamodule, combining the train, validation and test set.
+        """The platelet-em datamodule, combining the train, validation and test set.
 
         Args:
             pairs (bool, optional): Set True to return image pairs. Defaults to True.

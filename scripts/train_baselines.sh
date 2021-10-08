@@ -17,7 +17,7 @@ fi
 #
 
 # train high-capacity segmentation model for baseline "segmentation_model"
-$WRAPPER_FUNC python3 -m src.baselines.train_segmentation --dataset brats2d --channels 32 64 128 256 --gpus -1 --accelerator dp --max_epochs 800 --lr_decline_patience 500 --early_stop_patience 800 --batch_size 32 --bnorm --weight_decay 0.0005 --notest --fast_dev_run $FAST_DEV_RUN
+$WRAPPER_FUNC python3 -m src.baselines.train_segmentation --dataset brats2d-4-seg-baseline --channels 32 64 128 256 --gpus -1 --accelerator dp --max_epochs 800 --lr_decline_patience 500 --early_stop_patience 800 --batch_size 32 --bnorm --weight_decay 0.0005 --notest --fast_dev_run $FAST_DEV_RUN
 #mv lightning_logs/version_0 weights/brain2d/baselines/segmentation
 
 # train the deterministic registration model for baselines "jac_det_model", "li_wyatt_model"

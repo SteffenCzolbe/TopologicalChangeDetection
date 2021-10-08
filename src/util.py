@@ -21,17 +21,21 @@ def to_device(obj, device):
 
 
 def get_supported_datamodules():
-    from src.datamodules.mnist_datamodule import MnistDataModule
     from src.datamodules.brainmri_datamodule import BrainMRIDataModule
     from src.datamodules.brats_datamodule import BraTSDataModule
+    from src.datamodules.brats_datamodule_4_seg_baseline import BraTSDataModule4SegBaseline
     from src.datamodules.plateletem_datamodule import PlateletemDataModule
+    from src.datamodules.plateletem_4_seg_baseline_datamodule import PlateletemDataModule4SegBaseline
 
     supported_datamodels = {"brain": (BrainMRIDataModule, {'volumetric': True, 'atlasreg': False}),
                             "brain2d": (BrainMRIDataModule, {'volumetric': False, 'atlasreg': False}),
                             "brainatlas": (BrainMRIDataModule, {'volumetric': True, 'atlasreg': True}),
                             "brain2datlas": (BrainMRIDataModule, {'volumetric': False, 'atlasreg': True}),
                             "brats2d": (BraTSDataModule, {'volumetric': False, 'atlasreg': False}),
-                            "platelet-em": (PlateletemDataModule, {})}
+                            "brats2d-4-seg-baseline": (BraTSDataModule4SegBaseline, {'volumetric': False, 'atlasreg': False}),
+                            "platelet-em": (PlateletemDataModule, {}),
+                            "platelet-em-4-seg-baseline": (PlateletemDataModule4SegBaseline, {}),
+                            }
 
     return supported_datamodels
 

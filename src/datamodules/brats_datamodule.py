@@ -41,22 +41,10 @@ class BraTSDataModule(pl.LightningDataModule):
             raise Exception('BraTS data not found.')
 
     def train_dataloader(self, shuffle=False):
-        augmentation = tio.RandomAffine(
-            scales=(0.9, 1.2),
-            degrees=10,
-        )
-        dataset = BraTSDataset(
-            self.data_dir, "train", pairs=self.pairs, atlasreg=self.atlasreg,
-            loadseg=self.load_val_seg, volumetric=self.volumetric, augmentation=augmentation,
-        )
-        return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=shuffle)
+        raise Exception("BraTS is only used for test.")
 
     def val_dataloader(self, shuffle=False):
-        dataset = BraTSDataset(
-            self.data_dir, "val", pairs=self.pairs, atlasreg=self.atlasreg,
-            loadseg=self.load_val_seg, volumetric=self.volumetric,
-        )
-        return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=shuffle)
+        raise Exception("BraTS is only used for test.")
 
     def test_dataloader(self, shuffle=False):
         dataset = BraTSDataset(
@@ -143,8 +131,8 @@ class BraTSDataset(Dataset):
         self.subjects = self.split(subjects, datasplit)
 
     def split(self, subjects, datasplit):
-        # filter by split: 40% for training, 60% for evaluation. We use the same validation and test set here,
-        # as we only use it as a baseline and are short of data
+        # split: If training data is required, we use 75% for training, 25% for validation and test.
+        # If training data is not required, we use 100% for the test set
         n = len(subjects)
         s = int(n*0.75)
         if datasplit == 'train':
