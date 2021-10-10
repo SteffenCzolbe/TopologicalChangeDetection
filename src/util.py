@@ -97,7 +97,7 @@ def load_datamodule_for_model(model, batch_size=None):
     """
     batch_size = batch_size if batch_size is not None else model.hparams.batch_size
     datamodule_name = model.hparams.dataset
-    return load_datamodule(datamodule_name, batch_size=batch_size)
+    return load_datamodule_from_name(datamodule_name, batch_size=batch_size)
 
 
 def checkpoint_exists(model_logdir):

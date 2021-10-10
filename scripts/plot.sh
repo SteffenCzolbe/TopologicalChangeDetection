@@ -26,8 +26,6 @@ pdfcrop plots/mean_Lsym_semantic_loss_boxplot.pdf plots/mean_Lsym_semantic_loss_
 # run tumor detection (data pre-preprocessing for brains)
 python3 -m src.eval.tumor_detection --model_name  mse --samples 32 --non_cached
 python3 -m src.eval.tumor_detection --model_name  semantic_loss --samples 32 --non_cached
-python3 -m src.eval.tumor_detection --model_name  vae_anomaly_detection_mse --samples 32 --non_cached
-python3 -m src.eval.tumor_detection --model_name  vae_anomaly_detection_semantic_loss --samples 32 --non_cached
 python3 -m src.eval.tumor_detection --model_name  jac_det_model --samples 32 --non_cached
 python3 -m src.eval.tumor_detection --model_name  li_wyatt_model --samples 32 --non_cached
 python3 -m src.eval.tumor_detection_for_segmentation_model --model_name  segmentation_model --non_cached
@@ -47,3 +45,5 @@ python3 -m src.eval.roc --dataset brain2d --file plots/brain2d_roc_tumor --boots
 pdfcrop plots/brain2d_roc_tumor.pdf plots/brain2d_roc_tumor.pdf 
 python3 -m src.eval.roc --dataset brain2d --file plots/brain2d_roc_tumor_edema --include_edema --bootstrap_sample_cnt 8
 pdfcrop plots/brain2d_roc_tumor_edema.pdf plots/brain2d_roc_tumor_edema.pdf 
+python3 -m src.eval.roc --dataset platelet-em --file plots/platelet-em_roc --bootstrap_sample_cnt 8
+pdfcrop plots/platelet.pdf plots/platelet.pdf 
