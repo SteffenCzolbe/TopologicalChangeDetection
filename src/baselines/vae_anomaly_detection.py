@@ -146,6 +146,24 @@ class VAEAnaomalyDetection(pl.LightningModule):
         recon_loss = torch.mean((I - recon)**2, dim=1, keepdim=True)
         return -recon_loss
 
+    def bound(self, I0: torch.Tensor, I1: torch.Tensor, bidir=False):
+        """Fake-implementation of the probability bound
+
+        Args:
+            I0 (torch.Tensor): [description]
+            I1 (torch.Tensor): [description]
+            bidir (bool, optional): [description]. Defaults to False.
+
+        Returns:
+            [type]: [description]
+        """
+        bound_1 = self.forward(I1)
+
+        if not bidir:
+            return bound_1, None
+        else:
+            return None, bound_1, None, None
+
     def step(self, I: torch.Tensor) -> Dict[str, float]:
         mu, log_var = self.encode(I)
         z = self.reparameterize(mu, log_var)
