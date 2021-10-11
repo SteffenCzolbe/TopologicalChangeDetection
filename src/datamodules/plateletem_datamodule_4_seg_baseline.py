@@ -17,6 +17,7 @@ class PlateletemDataModule4SegBaseline(PlateletemDataModule):
         """
         super().__init__(pairs=True, data_dir=data_dir, batch_size=batch_size)
         self.class_cnt = 2
+        self.dims = (2, 256, 256, 1)
 
     def collect_files_for_datasplit(self, split):
         # we re-do the datasplit 75% train 25% val+test for training the segmentation baseline model
@@ -32,9 +33,9 @@ class PlateletemDataModule4SegBaseline(PlateletemDataModule):
                 self.data_dir, original_split, "image", "*.tif")))
             label_files += sorted(glob.glob(os.path.join(
                 self.data_dir, original_split, "label", "*.tif")))
-            topology_appear_files = sorted(glob.glob(os.path.join(
+            topology_appear_files += sorted(glob.glob(os.path.join(
                 self.data_dir, original_split, "topology_appear", "*.tif")))
-            topology_disappear_files = sorted(glob.glob(os.path.join(
+            topology_disappear_files += sorted(glob.glob(os.path.join(
                 self.data_dir, original_split, "topology_disappear", "*.tif")))
             topology_change_combined_files += sorted(glob.glob(os.path.join(
                 self.data_dir, original_split, "topology_combined", "*.tif")))
@@ -57,7 +58,7 @@ class PlateletemDataModule4SegBaseline(PlateletemDataModule):
             augmentations = None
 
         # collect file paths across validation and test split
-        intensity_files, label_files, topology_appear_files, topology_disappear_files, topology_change_combined_files = self.collect_files_for_datasplit(
+        intensity_files, label_files, topology_appear_files, topology_disappear_files, topology_combined_files = self.collect_files_for_datasplit(
             split)
 
         datasets = []

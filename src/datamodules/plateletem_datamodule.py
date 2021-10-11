@@ -1,4 +1,4 @@
-import torch
+import random
 from torch.utils.data import DataLoader, ConcatDataset
 import pytorch_lightning as pl
 import torchio as tio
@@ -41,10 +41,10 @@ class PlateletemDataModule(pl.LightningDataModule):
     def val_dataloader(self, shuffle=False):
         return self.get_dataloader("val", shuffle)
 
-    def test_dataloader(self, shuffle=False):
-        return self.get_dataloader("test", shuffle)
+    def test_dataloader(self, shuffle=False, bootstrap=False):
+        return self.get_dataloader("test", shuffle, bootstrap)
 
-    def get_dataloader(self, split: str, shuffle: bool):
+    def get_dataloader(self, split: str, shuffle: bool, bootstrap: bool = False):
         if split == "train":
             augmentations = tio.Compose([
                 tio.transforms.RandomFlip(axes=(0, 1)),
@@ -80,6 +80,10 @@ class PlateletemDataModule(pl.LightningDataModule):
                 dataset = TifTopologyChangeDataset(intensity_file, label_file, topology_appear_file,
                                                    topology_disappear_file, topology_combined_file, augmentations=augmentations)
                 datasets.append(dataset)
+
+        if bootstrap:
+            # bootstrap dataset by sampling with replacement
+            dataset = random.choices(dataset, k=len(dataset))
 
         # concatinate individual TIF stack datasets
         dataset = ConcatDataset(datasets)

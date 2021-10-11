@@ -25,7 +25,7 @@ def get_supported_datamodules():
     from src.datamodules.brats_datamodule import BraTSDataModule
     from src.datamodules.brats_datamodule_4_seg_baseline import BraTSDataModule4SegBaseline
     from src.datamodules.plateletem_datamodule import PlateletemDataModule
-    from src.datamodules.plateletem_4_seg_baseline_datamodule import PlateletemDataModule4SegBaseline
+    from src.datamodules.plateletem_datamodule_4_seg_baseline import PlateletemDataModule4SegBaseline
 
     supported_datamodels = {"brain": (BrainMRIDataModule, {'volumetric': True, 'atlasreg': False}),
                             "brain2d": (BrainMRIDataModule, {'volumetric': False, 'atlasreg': False}),

@@ -29,7 +29,7 @@ def get_bounds_for_model_plateletem_dataset(model_name, bootstrap=False):
 
     # load dataset
     datamodel = util.load_datamodule_for_model(model, )
-    dataloader = datamodel.test_dataloader()
+    dataloader = datamodel.test_dataloader(bootstrap=bootstrap)
 
     # predict
     topology_change_bounds = []
@@ -45,5 +45,4 @@ def get_bounds_for_model_plateletem_dataset(model_name, bootstrap=False):
         topology_change_bounds += topology_change_bound
         no_topology_change_bounds += no_topology_change_bound
 
-    # TODO: bootstrapping
     return topology_change_bounds, no_topology_change_bounds

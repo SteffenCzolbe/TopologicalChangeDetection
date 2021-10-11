@@ -64,11 +64,28 @@ class SegmentationModel(pl.LightningModule):
         y_pred = torch.argmax(y_pred_onehot, dim=1, keepdim=True)
         return y_pred, y_pred_onehot, y_pred_raw
 
-    def step(self, x: torch.Tensor, y_true: torch.Tensor) -> Dict[str, float]:
-        # predict
+    def bound(self, I0: torch.Tensor, I1: torch.Tensor, bidir=False):
+        """Fake-implementation of the probability bound
+
+        Args:
+            I0 (torch.Tensor): [description]
+            I1 (torch.Tensor): [description]
+            bidir (bool, optional): [description]. Defaults to False.
+
+        Returns:
+            [type]: [description]
+        """
+        x = torch.cat([I0, I1], dim=1)
         y_pred, y_pred_onehot, y_pred_raw = self.forward(x)
-        #import ipdb
-        # ipdb.set_trace()
+        bound_1 = y_pred_onehot[:, [0]]
+
+        if not bidir:
+            return bound_1, None
+        else:
+            return None, bound_1, None, None
+
+    def step(self, x: torch.Tensor, y_true: torch.Tensor) -> Dict[str, float]:
+        y_pred, y_pred_onehot, y_pred_raw = self.forward(x)
 
         loss = self.cross_entropy_loss(y_pred_raw, y_true.squeeze(1))
         dice_overlap = self.dice_overlap(y_true, y_pred)
@@ -81,24 +98,37 @@ class SegmentationModel(pl.LightningModule):
         }
         return loss, logs
 
+    def extract_data_from_batch(self, batch):
+        """Dataset-specific data extraction
+        """
+        if "brats" in self.hparams.dataset:
+            x = batch['I']['data']
+            y = batch['S']['data']
+        elif "platelet" in self.hparams.dataset:
+            I0 = batch['I0']['data']
+            I1 = batch['I1']['data']
+            x = torch.cat([I0, I1], dim=1)
+            y = batch['Tcombined']['data']
+        else:
+            raise Exception(f'unable to handle dataset {self.dataset}')
+
+        return x, y
+
     def training_step(self, batch, batch_idx):
-        x = batch['I']['data']
-        y = batch['S']['data']
+        x, y = self.extract_data_from_batch(batch)
         loss, logs = self.step(x, y)
         self.log_dict({f"train/{k}": v for k, v in logs.items()},
                       on_step=True, on_epoch=False)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        x = batch['I']['data']
-        y = batch['S']['data']
+        x, y = self.extract_data_from_batch(batch)
         loss, logs = self.step(x, y)
         self.log_dict({f"val/{k}": v for k, v in logs.items()})
         return loss
 
     def test_step(self, batch, batch_idx):
-        x = batch['I']['data']
-        y = batch['S']['data']
+        x, y = self.extract_data_from_batch(batch)
         loss, logs = self.step(x, y)
         self.log_dict({f"test/{k}": v for k, v in logs.items()})
         return loss
