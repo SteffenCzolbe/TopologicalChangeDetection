@@ -43,7 +43,5 @@ pdfcrop plots/plateletem_samples_comparison.pdf plots/plateletem_samples_compari
 # ROC curves and AUC (publication fig)
 python3 -m src.eval.roc --dataset brain2d --file plots/brain2d_roc_tumor --bootstrap_sample_cnt 8
 pdfcrop plots/brain2d_roc_tumor.pdf plots/brain2d_roc_tumor.pdf 
-python3 -m src.eval.roc --dataset brain2d --file plots/brain2d_roc_tumor_edema --include_edema --bootstrap_sample_cnt 8
-pdfcrop plots/brain2d_roc_tumor_edema.pdf plots/brain2d_roc_tumor_edema.pdf 
 python3 -m src.eval.roc --dataset platelet-em --file plots/platelet-em_roc --bootstrap_sample_cnt 8
 pdfcrop plots/platelet.pdf plots/platelet.pdf 
