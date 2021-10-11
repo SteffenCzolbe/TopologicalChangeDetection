@@ -143,7 +143,6 @@ if __name__ == "__main__":
     os.makedirs("./data/platelet_em/train/image/", exist_ok=True)
     os.makedirs("./data/platelet_em/train/label/", exist_ok=True)
     os.makedirs("./data/platelet_em/train/semantic/", exist_ok=True)
-    os.makedirs("./data/platelet_em/train/topology/", exist_ok=True)
     os.makedirs("./data/platelet_em/val/image/", exist_ok=True)
     os.makedirs("./data/platelet_em/val/label/", exist_ok=True)
     os.makedirs("./data/platelet_em/val/semantic/", exist_ok=True)
