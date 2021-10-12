@@ -70,6 +70,7 @@ def plot_finish(args):
     plt.ylabel('True Positive Rate')
     plt.locator_params(axis="x", nbins=5)
     plt.locator_params(axis="y", nbins=5)
+    plt.title("Brains" if "brain" in args.dataset else "Cells")
     plt.axis([0, 1, 0, 1])
     if args.legend:
         plt.legend(loc='lower right')

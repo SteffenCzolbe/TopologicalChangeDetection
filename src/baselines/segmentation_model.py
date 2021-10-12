@@ -77,7 +77,7 @@ class SegmentationModel(pl.LightningModule):
         """
         x = torch.cat([I0, I1], dim=1)
         y_pred, y_pred_onehot, y_pred_raw = self.forward(x)
-        bound_1 = y_pred_onehot[:, [0]]
+        bound_1 = y_pred_onehot[:, [1]]
 
         if not bidir:
             return bound_1, None

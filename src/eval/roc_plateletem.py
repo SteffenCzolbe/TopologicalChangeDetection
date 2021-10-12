@@ -9,12 +9,12 @@ def group_bounds_by_ground_truth(bound1, gt):
     topology_change_bounds = bound1[gt == 1].flatten().cpu().tolist()
     no_topology_change_bounds = bound1[gt == 0].flatten().cpu().tolist()
 
-    # sample 10000 pixels for plotting (proportionally)
+    # sample 50000 pixels for plotting (proportionally)
     K = len(topology_change_bounds) + len(no_topology_change_bounds)
     topology_change_bounds = random.sample(
-        topology_change_bounds, k=int(len(topology_change_bounds) / K * 10000))
+        topology_change_bounds, k=int(len(topology_change_bounds) / K * 50000))
     no_topology_change_bounds = random.sample(
-        no_topology_change_bounds, k=int(len(no_topology_change_bounds) / K * 10000))
+        no_topology_change_bounds, k=int(len(no_topology_change_bounds) / K * 50000))
 
     return topology_change_bounds, no_topology_change_bounds
 

@@ -14,80 +14,88 @@ import numpy as np
 
 
 def load_L_sym(model, I, J):
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     with torch.no_grad():
         _, bound_1, _, _ = model.bound(
-            I.unsqueeze(0), J.unsqueeze(0), bidir=True)
+            I.unsqueeze(0).to(device), J.unsqueeze(0).to(device), bidir=True)
 
-    return bound_1.squeeze(0)
+    return bound_1.squeeze(0).cpu()
 
 
 def crop(img, x_low=0, x_high=-1, y_low=0, y_high=-1):
     return img[:, x_low:x_high, y_low:y_high]
 
 
-def plot(args, model_names, models, I, J):
+def plot(args, model_names, models, batch):
+    sample_ids = [0, 6, 3, 18]
     cols = 2 + len(model_names)
-    rows = len(I)
-    """
-    # TODO: figure spacing
-    # we set up margins with gridspec
-    m = 0.01
-    axs = np.empty((rows, cols), dtype=object)
-    col0 = GridSpec(rows, 1)
-    col0.update(left=0, right=1./6 - m, wspace=0.05, hspace=0.05)
-    col1 = GridSpec(rows, 1)
-    col1.update(left=1./6 + m, right=2./6, wspace=0.05, hspace=0.05)
-    col2 = GridSpec(rows, 1)
-    col2.update(left=2./6, right=3./6 - m, wspace=0.05, hspace=0.05)
-    col3 = GridSpec(rows, 1)
-    col3.update(left=3./6 + m, right=4./6, wspace=0.05, hspace=0.05)
-    col4 = GridSpec(rows, 1)
-    col4.update(left=4./6 + 2*m, right=5./6 + m, wspace=0.05, hspace=0.05)
-    col5 = GridSpec(rows, 1)
-    col5.update(left=5./6 + m, right=1, wspace=0.05, hspace=0.05)
+    rows = len(sample_ids)
+    fig = viz.Fig(rows, cols, title=None, figsize=(cols*2, rows*2))
 
-    for row in range(rows):
-        axs[row, 0] = plt.subplot(col0[row, 0])
-        axs[row, 1] = plt.subplot(col1[row, 0])
-        axs[row, 2] = plt.subplot(col2[row, 0])
-        axs[row, 3] = plt.subplot(col3[row, 0])
-        axs[row, 4] = plt.subplot(col4[row, 0])
-        axs[row, 5] = plt.subplot(col5[row, 0])
-
-    # set-up fig
-    fig = viz.Fig(rows, cols, title=None, figsize=(5.3, 1+rows*1.1), axs=axs)
-        """
-    fig = viz.Fig(rows, cols, title=None, figsize=(1+cols*1.1, 1+rows*1.1))
-
-    for row in range(rows):
+    for row, idx in enumerate(sample_ids):
         # plot I
-        fig.plot_img(row, 0, crop(I[row]), vmin=0, vmax=1)
+        fig.plot_img(row, 0, crop(batch["I0"]["data"][idx]), vmin=0, vmax=1)
+        if args.overlay_seg:
+            # fig.plot_overlay_class_mask(row, 0, crop(batch["S0"]["data"][idx]), colors=[
+            #                            (0, 40, 97), (0, 40, 255), (255, 229, 0)], alpha=0.1)
+            fig.plot_contour(row, 0, crop(
+                batch["S0"]["data"][idx]), contour_class=1, width=2, rgba=(0, 40, 255, 255))
+            fig.plot_contour(row, 0, crop(
+                batch["S0"]["data"][idx]), contour_class=2, width=2, rgba=(255, 229, 0, 255))
+
+        if not args.combine_annotations:
+            fig.plot_contour(row, 0, crop(batch["T0"]["data"][idx]),
+                             contour_class=1, width=2, rgba=(255, 0, 0, 255))
 
         # plot J
-        fig.plot_img(row, 1, crop(J[row]), vmin=0, vmax=1)
+        fig.plot_img(row, 1, crop(batch["I1"]["data"][idx]), vmin=0, vmax=1)
+        if args.overlay_seg:
+            # fig.plot_overlay_class_mask(row, 1, crop(batch["S1"]["data"][idx]), colors=[
+            #                            (0, 40, 97), (0, 40, 255), (255, 229, 0)], alpha=0.1)
+            fig.plot_contour(row, 1, crop(
+                batch["S1"]["data"][idx]), contour_class=1, width=2, rgba=(0, 40, 255, 255))
+            fig.plot_contour(row, 1, crop(
+                batch["S1"]["data"][idx]), contour_class=2, width=2, rgba=(255, 229, 0, 255))
+
+        if not args.combine_annotations:
+            fig.plot_contour(row, 1, crop(batch["T1"]["data"][idx]),
+                             contour_class=1, width=2, rgba=(255, 0, 0, 255))
 
         # plot L_sym(J|I)
         for col, (model_name, model) in enumerate(zip(model_names, models), start=2):
-            l_sym = load_L_sym(model, I[row], J[row])
+            l_sym = load_L_sym(
+                model, batch["I0"]["data"][idx], batch["I1"]["data"][idx])
             vmin, vmax = config.MODELS[model_name]["probability_range"]["platelet-em"]
-            fig.plot_img(row, col, crop(J[row]), vmin=0, vmax=1)
+            fig.plot_img(row, col, crop(
+                batch["I1"]["data"][idx]), vmin=0, vmax=1)
             fig.plot_overlay(row, col, crop(l_sym), vmin=vmin,
                              vmax=vmax, cbar=False, alpha=0.45)
+            if args.overlay_seg:
+                # fig.plot_overlay_class_mask(row, col, crop(batch["S1"]["data"][idx]), colors=[
+                #                            (0, 40, 97), (0, 40, 255), (255, 229, 0)], alpha=0.1)
+                fig.plot_contour(row, col, crop(
+                    batch["S1"]["data"][idx]), contour_class=1, width=2, rgba=(0, 40, 255, 255))
+                fig.plot_contour(row, col, crop(
+                    batch["S1"]["data"][idx]), contour_class=2, width=2, rgba=(255, 229, 0, 255))
 
-    fig.set_col_labels(["$\mathbf{I}$", "$\mathbf{J}$"] + model_names)
+            if args.combine_annotations:
+                fig.plot_contour(row, col, crop(batch["Tcombined"]["data"][idx]),
+                                 contour_class=1, width=2, rgba=(255, 0, 0, 255))
+
+    if len(model_names) > 1:
+        fig.set_row_labels(["$\mathbf{I}$", "$\mathbf{J}$"] + model_names)
+    fig.fig.tight_layout()
     fig.save(args.file + ".pdf", close=False)
     fig.save(args.file + ".png")
 
 
-def load_samples(dataset, device):
+def load_samples(dataset):
     torch.manual_seed(0)
     dm = util.load_datamodule_from_name(
-        dataset, batch_size=5, pairs=True)
+        dataset, batch_size=32, pairs=True)
     dl = dm.test_dataloader(shuffle=True)
     batch = next(iter(dl))
-    I0 = batch['I0']['data'].to(device)
-    I1 = batch['I1']['data'].to(device)
-    return I0, I1
+    return batch
 
 
 def load_models(model_names, dataset, device):
@@ -95,7 +103,7 @@ def load_models(model_names, dataset, device):
 
     for model_name in model_names:
         model = util.load_model_from_logdir(
-            config.MODELS[model_name]["path"][dataset])
+            config.MODELS[model_name]["path"][dataset], model_cls=config.MODELS[model_name]["model_cls"])
         model.to(device)
         models.append(model)
 
@@ -113,11 +121,16 @@ def filter_for_existing_models(model_names, dataset):
 def main(args):
     torchreg.settings.set_ndims(2)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    I, J = load_samples(args.dataset, device)
-    model_names = filter_for_existing_models(config.ALL_MODELS, args.dataset)
+    batch = load_samples(args.dataset)
+
+    if args.all_models:
+        model_names = filter_for_existing_models(
+            config.ALL_MODELS, args.dataset)
+    else:
+        model_names = ["semantic_loss"]
     models = load_models(model_names, args.dataset, device)
 
-    plot(args, model_names, models, I, J)
+    plot(args, model_names, models, batch)
 
 
 if __name__ == "__main__":
@@ -135,6 +148,21 @@ if __name__ == "__main__":
         type=str,
         default="platelet-em",
         help="dataset",
+    )
+    parser.add_argument(
+        "--all_models",
+        action="store_true",
+        help="set to compare all models",
+    )
+    parser.add_argument(
+        "--combine_annotations",
+        action="store_true",
+        help="set to compare all models",
+    )
+    parser.add_argument(
+        "--overlay_seg",
+        action="store_true",
+        help="set to overlay segmentations",
     )
 
     hparams = parser.parse_args()

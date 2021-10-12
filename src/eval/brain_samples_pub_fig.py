@@ -49,7 +49,7 @@ def plot(args, model_names, brain_subject_ids, brats_subject_ids, mse_model, sem
     col1 = GridSpec(rows, 1)
     col1.update(left=1./6 + m, right=2./6, wspace=0.05, hspace=0.05)
     col2 = GridSpec(rows, 1)
-    col2.update(left=2./6, right=3./6 - m, wspace=0.05, hspace=0.05)
+    col2.update(left=2./6+2*m, right=3./6 + m, wspace=0.05, hspace=0.05)
     col3 = GridSpec(rows, 1)
     col3.update(left=3./6 + m, right=4./6, wspace=0.05, hspace=0.05)
     col4 = GridSpec(rows, 1)
@@ -68,64 +68,55 @@ def plot(args, model_names, brain_subject_ids, brats_subject_ids, mse_model, sem
     # set-up fig
     fig = viz.Fig(rows, cols, title=None, figsize=(5.3, 1+rows*1.1), axs=axs)
 
-    edema_color = (236, 200, 12, 255)
-    tumor_color = (36, 255, 12, 255)
+    tumor_color = (255, 0, 0, 255)
 
     # plot images
     for row, (brain_subject_id, brats_subject_id) in enumerate(zip(brain_subject_ids, brats_subject_ids)):
         I, J, tumor_seg = load_images(brain_subject_id, brats_subject_id)
 
-        # plot tumor brain
-        fig.plot_img(row, 0, crop(J), vmin=0, vmax=1)
-        fig.plot_contour(row, 0, crop(tumor_seg),
-                         contour_class=2, width=1, rgba=edema_color)
-        fig.plot_contour(row, 0, crop(tumor_seg),
-                         contour_class=1, width=1, rgba=tumor_color)
+        # plot I
+        fig.plot_img(row, 0, crop(I), vmin=0, vmax=1)
 
-        # plot mse model tumor prediction
-        q_tumor = load_q_tumor(model_names[0], brats_subject_id)
-        vmin, vmax = config.MODELS[model_names[0]
-                                   ]["p_tumor_probability_range"]
+        # plot tumor brain J
         fig.plot_img(row, 1, crop(J), vmin=0, vmax=1)
-        fig.plot_overlay(row, 1, crop(q_tumor), vmin=vmin,
+
+        # plot sem model topological differences
+        l_sym = load_L_sym(sem_model, I, J)
+        vmin, vmax = config.MODELS[model_names[1]
+                                   ]["probability_range"]["brain2d"]
+        fig.plot_img(row, 2, crop(J), vmin=0, vmax=1)
+        fig.plot_overlay(row, 2, crop(l_sym), vmin=vmin,
                          vmax=vmax, cbar=False, alpha=0.45)
-        fig.plot_contour(row, 1, crop(tumor_seg),
-                         contour_class=2, width=1, rgba=edema_color)
-        fig.plot_contour(row, 1, crop(tumor_seg),
-                         contour_class=1, width=1, rgba=tumor_color)
+
+        # plot mse model topological differences
+        l_sym = load_L_sym(mse_model, I, J)
+        vmin, vmax = config.MODELS[model_names[0]
+                                   ]["probability_range"]["brain2d"]
+        fig.plot_img(row, 3, crop(J), vmin=0, vmax=1)
+        fig.plot_overlay(row, 3, crop(l_sym), vmin=vmin,
+                         vmax=vmax, cbar=False, alpha=0.45)
 
         # plot sem model tumor prediction
         q_tumor = load_q_tumor(model_names[1], brats_subject_id)
         vmin, vmax = config.MODELS[model_names[1]
                                    ]["p_tumor_probability_range"]
-        fig.plot_img(row, 2, crop(J), vmin=0, vmax=1)
-        fig.plot_overlay(row, 2, crop(q_tumor), vmin=vmin,
-                         vmax=vmax, cbar=False, alpha=0.45)
-        fig.plot_contour(row, 2, crop(tumor_seg),
-                         contour_class=2, width=1, rgba=edema_color)
-        fig.plot_contour(row, 2, crop(tumor_seg),
-                         contour_class=1, width=1, rgba=tumor_color)
-
-        # plot I
-        fig.plot_img(row, 3, crop(I), vmin=0, vmax=1)
-
-        # plot topological differences
-        l_sym = load_L_sym(mse_model, I, J)
-        vmin, vmax = config.MODELS[model_names[0]
-                                   ]["probability_range"]["brain2d"]
         fig.plot_img(row, 4, crop(J), vmin=0, vmax=1)
-        fig.plot_overlay(row, 4, crop(l_sym), vmin=vmin,
+        fig.plot_overlay(row, 4, crop(q_tumor), vmin=vmin,
                          vmax=vmax, cbar=False, alpha=0.45)
+        fig.plot_contour(row, 4, crop(tumor_seg),
+                         contour_class=1, width=2, rgba=tumor_color)
 
-        # plot topological differences
-        l_sym = load_L_sym(sem_model, I, J)
-        vmin, vmax = config.MODELS[model_names[1]
-                                   ]["probability_range"]["brain2d"]
+        # plot mse model tumor prediction
+        q_tumor = load_q_tumor(model_names[0], brats_subject_id)
+        vmin, vmax = config.MODELS[model_names[0]
+                                   ]["p_tumor_probability_range"]
         fig.plot_img(row, 5, crop(J), vmin=0, vmax=1)
-        fig.plot_overlay(row, 5, crop(l_sym), vmin=vmin,
+        fig.plot_overlay(row, 5, crop(q_tumor), vmin=vmin,
                          vmax=vmax, cbar=False, alpha=0.45)
+        fig.plot_contour(row, 5, crop(tumor_seg),
+                         contour_class=1, width=2, rgba=tumor_color)
 
-    fig.set_col_labels([None, "MSE", "SEM", None, "MSE", "SEM", ])
+    fig.set_col_labels([None, None, "SEM", "MSE", "SEM", "MSE"])
     fig.save(args.file + ".pdf", close=False)
     fig.save(args.file + ".png")
 

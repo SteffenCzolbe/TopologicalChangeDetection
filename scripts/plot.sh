@@ -44,4 +44,4 @@ pdfcrop plots/plateletem_samples_comparison.pdf plots/plateletem_samples_compari
 python3 -m src.eval.roc --dataset brain2d --file plots/brain2d_roc_tumor --bootstrap_sample_cnt 8
 pdfcrop plots/brain2d_roc_tumor.pdf plots/brain2d_roc_tumor.pdf 
 python3 -m src.eval.roc --dataset platelet-em --file plots/platelet-em_roc --bootstrap_sample_cnt 8
-pdfcrop plots/platelet.pdf plots/platelet.pdf 
+pdfcrop plots/platelet-em_roc.pdf plots/platelet-em_roc.pdf 
