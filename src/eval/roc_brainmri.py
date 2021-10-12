@@ -8,7 +8,7 @@ import src.eval.config as config
 
 def load_2d_brain_background_mask():
     # load a mask of potential background areas
-    mask = imageio.imread("./src/eval/mask.png")
+    mask = imageio.imread("./src/eval/brain_background_mask.png")
     mask = torch.as_tensor(mask).view(1, 224, 160, 1)
     potential_bg = mask == 255
     return potential_bg
