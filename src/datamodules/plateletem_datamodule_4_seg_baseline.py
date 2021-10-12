@@ -4,6 +4,7 @@ import os
 from .tif_topology_change_dataset import TifTopologyChangeDataset
 import glob
 from .plateletem_datamodule import PlateletemDataModule
+import random
 
 
 class PlateletemDataModule4SegBaseline(PlateletemDataModule):
@@ -48,7 +49,7 @@ class PlateletemDataModule4SegBaseline(PlateletemDataModule):
         else:
             return intensity_files[s:], label_files[s:], topology_appear_files[s:], topology_disappear_files[s:], topology_change_combined_files[s:]
 
-    def get_dataloader(self, split: str, shuffle: bool):
+    def get_dataloader(self, split: str, shuffle: bool, bootstrap: bool = False):
         if split == "train":
             augmentations = tio.Compose([
                 tio.transforms.RandomFlip(axes=(0, 1)),
@@ -66,6 +67,10 @@ class PlateletemDataModule4SegBaseline(PlateletemDataModule):
             dataset = TifTopologyChangeDataset(intensity_file, label_file, topology_appear_file,
                                                topology_disappear_file, topology_combined_file, augmentations=augmentations)
             datasets.append(dataset)
+
+        if bootstrap:
+            # bootstrap dataset by sampling with replacement
+            dataset = random.choices(dataset, k=len(dataset))
 
         # concatinate individual TIF stack datasets
         dataset = ConcatDataset(datasets)
