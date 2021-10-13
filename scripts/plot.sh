@@ -3,10 +3,6 @@ BRAIN2DSEMMODEL=./weights/brain2d/topology_detection/semantic_loss/weight_decay0
 PLTELETEMMSEMODEL=./weights/platelet-em/topology_detection/mse/weight_decay0.01
 PLTELETEMSEMMODEL=./weights/platelet-em/topology_detection/semantic_loss/weight_decay0.01
 
-# introduction figure template (publication fig)
-python3 -m src.eval.introfig
-pdfcrop plots/intro.pdf plots/intro.pdf
-
 # samples from the model (dev purposes)
 python3 -m src.eval.samples --ds1 brain2d --ds2 brats2d --weights $BRAIN2DMSEMODEL --file plots/brain2d_mse_samples 
 python3 -m src.eval.samples --ds1 brain2d --ds2 brats2d --weights $BRAIN2DSEMMODEL --file plots/brain2d_semantic_loss_samples
@@ -38,6 +34,20 @@ pdfcrop plots/brain2d_samples_comparison.pdf plots/brain2d_samples_comparison.pd
 # plot platelet model samples (publication fig)
 python3 -m src.eval.platelet_samples_pub_fig --dataset platelet-em --file plots/plateletem_samples_comparison
 pdfcrop plots/plateletem_samples_comparison.pdf plots/plateletem_samples_comparison.pdf
+
+# introduction fig (platelet)
+python3 -m src.eval.platelet_intro_fig --file plots/intro_fig
+pdfcrop plots/intro_fig.pdf plots/intro_fig.pdf
+python3 -m src.eval.platelet_intro_fig --overlay_contour --file plots/intro_fig_contour
+pdfcrop plots/intro_fig_contour.pdf plots/intro_fig_contour.pdf
+python3 -m src.eval.platelet_intro_fig --overlay_seg --file plots/intro_fig_with_segmentation
+pdfcrop plots/intro_fig_with_segmentation.pdf plots/intro_fig_with_segmentation.pdf
+
+# introduction fig (brains)
+python3 -m src.eval.brain_intro_fig --file plots/brain_intro_fig
+pdfcrop plots/brain_intro_fig.pdf plots/brain_intro_fig.pdf
+python3 -m src.eval.brain_intro_fig --overlay_tumor --file plots/brain_intro_fig_contour
+pdfcrop plots/brain_intro_fig_contour.pdf plots/brain_intro_fig_contour.pdf
 
 
 # ROC curves and AUC (publication fig)
