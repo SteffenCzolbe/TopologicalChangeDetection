@@ -5,9 +5,7 @@ src/exploration
 datasets
 tmp*
 *.pdf
-*.png
 *.ckpt
-out
 weights
 *.pckl
 *.pickl
@@ -16,9 +14,6 @@ data/*
 data/MNIST/*
 !data/MNIST/download.py
 !data/MNIST/download_calligraphy_split.py
-trained_models
-trained_auxiliary_models
-OLD*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
