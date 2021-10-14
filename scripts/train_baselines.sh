@@ -34,7 +34,7 @@ $WRAPPER_FUNC python3 -m src.baselines.train_vae --dataset brain2d --channels 32
 # Platelet-EM Dataset
 #
 
-# train high-capacity segmentation model for baseline "segmentation_model" TODO, using hand-annotation
+# train high-capacity segmentation model for baseline "segmentation_model"
 $WRAPPER_FUNC python3 -m src.baselines.train_segmentation --dataset platelet-em-4-seg-baseline --channels 32 64 128 256 --gpus -1 --accelerator dp --max_epochs 800 --lr_decline_patience 500 --early_stop_patience 800 --batch_size 32 --bnorm --weight_decay 0.01 --notest --fast_dev_run $FAST_DEV_RUN
 #mv lightning_logs/version_0 weights/platelet-em/baselines/segmentation
 
