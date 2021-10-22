@@ -4,6 +4,7 @@ import re
 import yaml
 import torch
 import torchreg
+import argparse
 
 
 def to_device(obj, device):
@@ -117,6 +118,13 @@ def get_checkoint_path_from_logdir(model_logdir):
             epoch = re.search(regex, fname).group(1)
             epoch_to_checkpoint[int(epoch)] = fname
     return sorted(epoch_to_checkpoint.items(), key=lambda t: t[0])[-1][1]
+
+
+def load_hparams_from_logdir(logdir):
+    with open(os.path.join(logdir, "hparams.yaml")) as file:
+        hparams_dict = yaml.load(file, Loader=yaml.FullLoader)
+    hparams = argparse.Namespace(**hparams_dict)
+    return hparams
 
 
 def load_model_from_logdir(model_logdir, model_cls=None):

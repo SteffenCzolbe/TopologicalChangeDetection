@@ -164,7 +164,7 @@ class RegistrationModel(pl.LightningModule):
             "mean_latent_log_var": log_var.mean(),
             "prior_log_alpha": self.elbo.log_alpha.mean(),
             "prior_log_beta": self.elbo.log_beta.mean(),
-            "transformation_smoothness": -jacdet.var(),
+            "transformation_irregularity": jacdet.abs().log().var(),
             "transformation_folding": (jacdet <= 0).float().mean(),
             "covar_diagonal": covar_diagonal.mean(),
             "covar_off_diagonal": covar_off_diagonal.mean(),
