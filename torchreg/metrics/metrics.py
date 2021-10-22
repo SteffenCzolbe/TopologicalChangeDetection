@@ -234,7 +234,10 @@ class DiceOverlap(nn.Module):
             mask1 = y_pred == label
             intersection = (mask0 * mask1).sum()
             union = mask0.sum() + mask1.sum()
-            dice_overlap = 2.0 * intersection / (union + 1e-6)
+            if union == 0:
+                dice_overlap = 1.  # overlap of empty sets is 1
+            else:
+                dice_overlap = 2.0 * intersection / union
             dice_overlaps.append(dice_overlap)
 
         dice_overlaps = torch.stack(dice_overlaps)
