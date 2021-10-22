@@ -101,7 +101,7 @@ def main(args):
     torchreg.settings.set_ndims(2)
     # we use some brats subjects selected at random in an earlier version of the code,
     # since we had already written the results section for these
-    brats_subject_ids = ["BraTS20_Training_309"]
+    brats_subject_ids = ["BraTS20_Training_169"]
     brain_subject_ids = BrainMRIDataModule(
     ).test_dataloader().dataset.subjects  # [:args.sample_cnt]
     sem_model = util.load_model_from_logdir(

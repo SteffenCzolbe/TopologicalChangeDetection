@@ -49,9 +49,14 @@ pdfcrop plots/brain_intro_fig.pdf plots/brain_intro_fig.pdf
 python3 -m src.eval.brain_intro_fig --overlay_tumor --file plots/brain_intro_fig_contour
 pdfcrop plots/brain_intro_fig_contour.pdf plots/brain_intro_fig_contour.pdf
 
-
 # ROC curves and AUC (publication fig)
 python3 -m src.eval.roc --dataset brain2d --file plots/brain2d_roc_tumor --bootstrap_sample_cnt 8
 pdfcrop plots/brain2d_roc_tumor.pdf plots/brain2d_roc_tumor.pdf 
 python3 -m src.eval.roc --dataset platelet-em --file plots/platelet-em_roc --bootstrap_sample_cnt 8
 pdfcrop plots/platelet-em_roc.pdf plots/platelet-em_roc.pdf 
+
+# test registration models
+python3 -m src.test_registration --load_from_checkpoint $PLTELETEMSEMMODEL
+python3 -m src.test_registration --load_from_checkpoint $PLTELETEMMSEMODEL
+python3 -m src.test_registration --load_from_checkpoint $BRAIN2DSEMMODEL
+python3 -m src.test_registration --load_from_checkpoint $BRAIN2DMSEMODEL
