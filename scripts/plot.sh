@@ -55,8 +55,12 @@ pdfcrop plots/brain2d_roc_tumor.pdf plots/brain2d_roc_tumor.pdf
 python3 -m src.eval.roc --dataset platelet-em --file plots/platelet-em_roc --bootstrap_sample_cnt 8
 pdfcrop plots/platelet-em_roc.pdf plots/platelet-em_roc.pdf 
 
-# test registration models
+# test registration models (Appendix)
 python3 -m src.test_registration --load_from_checkpoint $PLTELETEMSEMMODEL
 python3 -m src.test_registration --load_from_checkpoint $PLTELETEMMSEMODEL
 python3 -m src.test_registration --load_from_checkpoint $BRAIN2DSEMMODEL
 python3 -m src.test_registration --load_from_checkpoint $BRAIN2DMSEMODEL
+
+# samples from the platelet dataset (Appendix)
+python3 -m src.eval.platelet_dataset_samples --file plots/platelet_dataset_samples
+pdfcrop plots/platelet_dataset_samples.pdf plots/platelet_dataset_samples.pdf 
